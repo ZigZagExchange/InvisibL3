@@ -1,0 +1,14 @@
+node_modules
+
+test/test_jubjub.js
+test/testFirebase.js
+
+firebaseConfig.js
+design.txt
+tx_structure.txt
+
+circomlib/test
+
+
+
+snarkjs/

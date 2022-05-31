@@ -1,0 +1,12 @@
+
+1) In node_modules/circom_tester/wasm/tester.js::73-76  change
+
+b = await exec("circom " + flags + fileName);
+    assert(b.stderr == "",
+	  "circom compiler error \n" + b.stderr);
+}
+to:
+b = await exec("circom " + flags + fileName);
+    assert(!b.stderr.includes("err"),
+	  "circom compiler error \n" + b.stderr);
+}
