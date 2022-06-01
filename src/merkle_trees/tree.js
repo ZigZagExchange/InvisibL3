@@ -25,6 +25,17 @@ module.exports = class Tree {
       this.innerNodes[depth - i][affectedPos[i - 1]] =
         affectedInnerNodes[i - 1];
     }
+
+    this.root = this.innerNodes[0][0];
+  }
+
+  updateLeafNodes(leafHash, idx) {
+    this.leafNodes[idx] = leafHash;
+  }
+
+  updateNode(leafHash, idx, proof) {
+    this.updateInnerNodes(leafHash, idx, proof);
+    this.updateLeafNodes(leafHash, idx);
   }
 
   treeFromLeafNodes() {
@@ -56,8 +67,8 @@ module.exports = class Tree {
     return this.root == computed_root;
   }
 
-  findLeafIdxByHash(hash) {
-    const index = this.leafNodes.findIndex((leaf) => leaf.hash == hash);
-    return index;
+  verifyRoot() {
+    let treeTemp = this.treeFromLeafNodes();
+    return this.root == treeTemp[0][0];
   }
 };

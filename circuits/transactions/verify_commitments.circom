@@ -5,12 +5,21 @@ template VerifyCommitments(n){
     signal input amounts[n];
     signal input blindings[n];
 
+
     component commitments[n];
-    component forceEqual[2*n]; 
+    // component forceEqual[2*n]; 
+    component lessThan[n];
 
     for (var i=0; i<n; i++) {
 
         commitments[i] = Commitment();
+
+        // Verify amounts are in range (non negative)
+        lessThan[i] = LessThan(68);
+        lessThan[i].in[0] <== amounts[i];
+        lessThan[i].in[1] <== 2 ** 67;
+
+        lessThan[i].out === 1;
 
         commitments[i].amount <== amounts[i];
         commitments[i].blinding <== blindings[i];

@@ -134,7 +134,7 @@ template SwapTransaction(n_A, m_A, n_B, m_B){
 }
 
 
-// component main = SwapTransaction(5,5, 5, 5);
+// component main = SwapTransaction(3,3,3,3);
 
 
 

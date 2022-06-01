@@ -23,7 +23,7 @@ class Note {
 
   hashNote() {
     return poseidon([
-      this.index,
+      // this.index,
       this.address[0],
       this.address[1],
       this.token,

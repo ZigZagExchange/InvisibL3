@@ -377,10 +377,6 @@ const swapInputs = {
   signature_A: [
     3792585360591259474248195478513985359505807501380117204011053613168216765079n,
     7628663720991697146822541853150895101834465283121383563895831712071747385441n,
-    0n,
-    0n,
-    0n,
-    0n,
   ],
   notesIn_B: [
     [
@@ -444,10 +440,6 @@ const swapInputs = {
   signature_B: [
     11618975022032007435706019980311951461184464861579085359126043903890660253099n,
     18193310709553949533818060376618809962148955948854521541342338320699909469674n,
-    0n,
-    0n,
-    0n,
-    0n,
   ],
 };
 
@@ -476,6 +468,8 @@ function padSwapInputs(n) {
       key == "pos_B"
     ) {
       newInputs[key] = padArrayEnd(value, n, 0);
+    } else if (key == "signature_A" || key == "signature_B") {
+      newInputs[key] = padArrayEnd(value, n + 1, 0);
     } else {
       newInputs[key] = value;
     }
@@ -483,8 +477,8 @@ function padSwapInputs(n) {
   return newInputs;
 }
 
-function multiSwapInputs(numSwaps) {
-  let inputs = padSwapInputs(5);
+function multiSwapInputs(numSwaps, n) {
+  let inputs = padSwapInputs(n);
 
   const newInputs = {};
   for (const [key, value] of Object.entries(inputs)) {

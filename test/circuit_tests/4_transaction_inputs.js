@@ -223,10 +223,6 @@ function padTxHashInputs(n) {
   return newInputs;
 }
 
-function padArrayEnd(arr, len, padding) {
-  return arr.concat(Array(len - arr.length).fill(padding));
-}
-
 function padTxInputs(n) {
   const newInputs = {};
   for (const [key, value] of Object.entries(txInputs)) {
@@ -247,6 +243,10 @@ function padTxInputs(n) {
     }
   }
   return newInputs;
+}
+
+function padArrayEnd(arr, len, padding) {
+  return arr.concat(Array(len - arr.length).fill(padding));
 }
 
 module.exports = {

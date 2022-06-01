@@ -13,9 +13,9 @@ template LeafExistence(k){
     component computedRoot = GetMerkleRoot(k);
     computedRoot.leaf <== leaf;
 
-    for (var w = 0; w < k; w++){
-        computedRoot.paths2root[w] <== paths2root[w];
-        computedRoot.paths2rootPos[w] <== paths2rootPos[w];
+    for (var i = 0; i < k; i++){
+        computedRoot.paths2root[i] <== paths2root[i];
+        computedRoot.paths2rootPos[i] <== paths2rootPos[i];
     }
 
     // equality constraint: input tx root === computed tx root 

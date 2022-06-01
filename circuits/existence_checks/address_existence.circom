@@ -1,5 +1,5 @@
 include "./address_leaf.circom";
-include "../helpers/leaf_existence.circom";
+include "./leaf_existence.circom";
 include "../../circomlib/circuits/poseidon.circom";
 
 template AddressExistence(k, n_notes){
