@@ -47,27 +47,34 @@ module.exports = class NoteTree extends Tree {
     // get the proof and update the intermidiate nodes
     const noteProof = this.getNoteProof(this.leafNodes[this.notes.length - 1]);
 
-    this.updateNode(noteLeaf, this.notes.length - 1, noteProof[0]);
+    this.updateNode(note.hash, this.notes.length - 1, noteProof[0]);
   }
 
-  removeNote(note) {
-    let idx = this.noteHashes.findIndex((x) => x === note.hash);
+  replaceNote(prevNote, newNote) {
+    let idx = this.noteHashes.findIndex((x) => x === prevNote.hash);
+
+    this.notes[idx] = newNote;
+    this.noteHashes[idx] = newNote.hash;
+
+    const treeIdx = this.leafNodes.findIndex((x) => x === prevNote.hash);
+
+    const noteProof = this.getNoteProof(prevNote.hash);
+
+    this.updateNode(newNote.hash, treeIdx, noteProof[0]);
+  }
+
+  removeNote(noteLeaf) {
+    let idx = this.noteHashes.findIndex((x) => x === noteLeaf);
 
     this.notes.splice(idx, 1);
     this.noteHashes.splice(idx, 1);
 
-    const noteProof = this.getNoteProof(note.hash);
+    const noteProof = this.getNoteProof(noteLeaf);
 
-    let idx2 = this.leafNodes.findIndex((x) => x === note.hash);
+    let idx2 = this.leafNodes.findIndex((x) => x === noteLeaf);
 
     this.updateNode(ZERO_HASH, idx2, noteProof[0]);
   }
-
-  // findNoteByPubkey(pubkeyX, pubkeyY) {
-  //   return this.notes.filter(
-  //     (addr) => addr.pubkeyX == pubkeyX && addr.pubkeyY == pubkeyY
-  //   )[0];
-  // }
 };
 
 function padArrayEnd(arr, len, padding) {

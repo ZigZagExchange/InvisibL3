@@ -2,20 +2,21 @@ include "./note_leaf.circom";
 include "./leaf_existence.circom";
 include "../../circomlib/circuits/poseidon.circom";
 
-template RemoveNoteLeaf(k){
+template RemoveNote(k){
     // k is depth of address tree
 
-    const ZERO_HASH = 1972593120533667380477339603313231606809289461898419477679735141070009144584;
+    var ZERO_HASH = 1972593120533667380477339603313231606809289461898419477679735141070009144584;
     signal input paths2root[k];
     signal input paths2rootPos[k];
 
-    signal output intermidiateRoot;
+    signal output newRoot;
 
     // hash of first two entries in tx Merkle proof
     component merkleRoot[k];
+    
     merkleRoot[0] = Poseidon(2);
-    merkleRoot[0].inputs[0] <== leaf - paths2rootPos[0]* (leaf - paths2root[0]);
-    merkleRoot[0].inputs[1] <== paths2root[0] - paths2rootPos[0]* (paths2root[0] - leaf);
+    merkleRoot[0].inputs[0] <== ZERO_HASH - paths2rootPos[0]* (ZERO_HASH - paths2root[0]);
+    merkleRoot[0].inputs[1] <== paths2root[0] - paths2rootPos[0]* (paths2root[0] - ZERO_HASH);
 
     // hash of all other entries in tx Merkle proof
     for (var v = 1; v < k; v++){
@@ -25,8 +26,10 @@ template RemoveNoteLeaf(k){
     }
 
     // output computed Merkle root
-    intermidiateRoot <== merkleRoot[k-1].out;
+    newRoot <== merkleRoot[k-1].out;
 
 }
 
-component main = RemoveNoteLeaf(4);
+
+
+// component main = RemoveNoteLeaf(4);

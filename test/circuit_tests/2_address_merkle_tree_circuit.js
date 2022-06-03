@@ -12,6 +12,8 @@ const {
   noteLeafExistence,
   noteExistenceInputs,
   multiNoteExistenceInputs,
+  testRemoveInputs,
+  multiUpdateNoteInputs,
 } = require("./2_merkle_tree_input.js");
 
 const assert = chai.assert;
@@ -197,14 +199,74 @@ describe("merkle tree tests", function () {
   //   // await circuit.assertOut(w, { out: leaves[0] });
   // }).timeout(10000);
 
-  it("should check multiple notes existence", async () => {
+  // it("should check multiple notes existence", async () => {
+  //   let circuit;
+  //   try {
+  //     circuit = await wasm_tester(
+  //       path.join(
+  //         __dirname,
+  //         "../../circuits/existence_checks",
+  //         "multi_note_existence.circom"
+  //       )
+  //     );
+  //   } catch (e) {
+  //     console.log(e);
+  //     console.log(
+  //       "Uncomment out main component in note_existence.circom to test note existence"
+  //     );
+  //     return;
+  //   }
+
+  //   const inputs = multiNoteExistenceInputs;
+
+  //   const w = await circuit.calculateWitness(inputs);
+
+  //   // console.log(w);
+
+  //   await circuit.checkConstraints(w);
+  // }).timeout(10000);
+
+  // it("should check removing notes", async () => {
+  //   let circuit;
+  //   try {
+  //     circuit = await wasm_tester(
+  //       path.join(
+  //         __dirname,
+  //         "../../circuits/existence_checks",
+  //         "remove_note.circom"
+  //       )
+  //     );
+  //   } catch (e) {
+  //     console.log(e);
+  //     console.log(
+  //       "Uncomment out main component in note_existence.circom to test note existence"
+  //     );
+  //     return;
+  //   }
+
+  //   const inputs = testRemoveInputs;
+
+  //   const w = await circuit.calculateWitness({
+  //     paths2root: inputs.paths2root,
+  //     paths2rootPos: inputs.paths2rootPos,
+  //   });
+
+  //   // console.log(w);
+
+  //   await circuit.checkConstraints(w);
+
+  //   // await circuit.assertOut(w, { out: leaves[0] });
+  //   await circuit.assertOut(w, { intermidiateRoot: inputs.newRoot });
+  // }).timeout(10000);
+  // // ============================================================
+  it("should check updating multiple notes", async () => {
     let circuit;
     try {
       circuit = await wasm_tester(
         path.join(
           __dirname,
           "../../circuits/existence_checks",
-          "multi_note_existence.circom"
+          "multi_note_update.circom"
         )
       );
     } catch (e) {
@@ -215,12 +277,17 @@ describe("merkle tree tests", function () {
       return;
     }
 
-    const inputs = multiNoteExistenceInputs;
+    const inputs = multiUpdateNoteInputs;
 
+    console.time("calculateWitness");
     const w = await circuit.calculateWitness(inputs);
-
-    // console.log(w);
+    console.timeEnd("calculateWitness");
 
     await circuit.checkConstraints(w);
+
+    await circuit.assertOut(w, {
+      newComputedRoot:
+        inputs.intermidiateRoots[inputs.intermidiateRoots.length - 1],
+    });
   }).timeout(10000);
 });

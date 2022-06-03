@@ -33,21 +33,85 @@ function main() {
     (n) => new Note([n[1], n[2]], [n[4], n[5]], n[3], n[0])
   );
 
-  let inNotes = notesIn_A
-    .concat(notesIn_B)
-    .concat(notesOut_A)
-    .concat(notesOut_B)
-    .filter((n) => n.hash !== ZERO_HASH);
+  function getMultiUpdateNoteInputs() {
+    let inNotes = notesIn_A.concat(notesIn_B);
 
-  let inNoteHashes = inNotes.map((n) => n.hash);
+    let outNotes = notesOut_A.concat(notesOut_B);
 
-  const tree = new NoteTree(inNotes, 4);
+    const tree = new NoteTree(Array.from(inNotes), 4);
 
-  //   console.log(tree.noteHashes);
-  tree.removeNote(notesIn_A[0]);
-  //   console.log(tree.noteHashes);
+    const initialRoot = tree.root;
+    let proofs = [];
+    let intermidiateRoots = [];
+
+    let len = inNotes.length;
+    for (let i = 0; i < len; i++) {
+      const noteHash = inNotes[i].hash;
+
+      let proof = tree.getNoteProof(noteHash);
+      proofs.push(proof);
+
+      tree.replaceNote(inNotes[i], outNotes[i]);
+      intermidiateRoots.push(tree.root);
+    }
+
+    let Ko_in = inNotes.map((n) => n.address);
+    let token_in = inNotes.map((n) => n.token);
+    let commitment_in = inNotes.map((n) => n.commitment);
+    let Ko_out = outNotes.map((n) => n.address);
+    let token_out = outNotes.map((n) => n.token);
+    let commitment_out = outNotes.map((n) => n.commitment);
+    intermidiateRoots.unshift(initialRoot);
+    let paths2rootPos = proofs.map((p) => p[1]);
+    let paths2root = proofs.map((p) => p[0]);
+
+    console.log("Ko_in: ", Ko_in);
+    console.log(",token_in: ", token_in);
+    console.log(",commitment_in: ", commitment_in);
+    console.log(",Ko_out: ", Ko_out);
+    console.log(",token_out: ", token_out);
+    console.log(",commitment_out: ", commitment_out);
+    console.log(",initialRoot: ", initialRoot);
+    console.log(",intermidiateRoots: ", intermidiateRoots);
+    console.log(",paths2rootPos: ", paths2rootPos);
+    console.log(",paths2root: ", paths2root);
+  }
+  getMultiUpdateNoteInputs();
+
+  function getRemoveNoteInputs() {
+    let inNotes = notesIn_A
+      .concat(notesOut_A)
+      .concat(notesIn_B)
+      .concat(notesOut_B)
+      .filter((n) => n.hash !== ZERO_HASH);
+
+    let inNoteHashes = inNotes.map((n) => n.hash);
+
+    const tree = new NoteTree(Array.from(inNotes), 4);
+
+    let idx = tree.leafNodes.findIndex((x) => x === inNotes[0].hash);
+
+    let proof = tree.getProof(idx);
+
+    tree.removeNote(inNotes[0]);
+
+    console.log("paths2root: ", proof.proof);
+    console.log(",paths2rootPos: ", proof.proofPos);
+    console.log("newRoot", tree.root);
+  }
+  // getRemoveNoteInputs()
 
   function getMultiExistenceCheckInputs() {
+    let inNotes = notesIn_A
+      .concat(notesOut_A)
+      .concat(notesIn_B)
+      .concat(notesOut_B)
+      .filter((n) => n.hash !== ZERO_HASH);
+
+    let inNoteHashes = inNotes.map((n) => n.hash);
+
+    const tree = new NoteTree(Array.from(inNotes), 4);
+
     let proofs = [];
     for (let i = 0; i < inNotes.length; i++) {
       const noteHash = inNoteHashes[i];
@@ -72,6 +136,7 @@ function main() {
     console.log(",root: ", root);
     s;
   }
+  // getMultiExistenceCheckInputs();
 }
 
 main();
