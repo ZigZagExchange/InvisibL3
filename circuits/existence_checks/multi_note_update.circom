@@ -3,12 +3,10 @@ include "./leaf_existence.circom";
 include "./get_merkle_root.circom";
 include "../../circomlib/circuits/poseidon.circom";
 
-// Checks the existence of these notes and removes them (rather zeros them out)
+// Checks the existence of input notes and replaces them with the output notes
 template MultiNoteUpdate(n, k){
     // n is the number of notes
     // k is depth of address tree
-
-    var ZERO_HASH = 1972593120533667380477339603313231606809289461898419477679735141070009144584;
 
     signal input Ko_in[n][2]; 
     signal input token_in[n];
@@ -17,8 +15,6 @@ template MultiNoteUpdate(n, k){
     signal input Ko_out[n][2]; 
     signal input token_out[n];
     signal input commitment_out[n][2];
-
-    signal input initialRoot;
 
     signal input intermidiateRoots[n + 1];
     signal input paths2rootPos[n][k];
@@ -33,7 +29,6 @@ template MultiNoteUpdate(n, k){
     component noteExistence[n];
     component updatedRoot[n];
 
-    initialRoot === intermidiateRoots[0];
     for (var i=0; i<n; i++) {
         noteLeaf_in[i] = NoteLeaf();
 
@@ -43,6 +38,7 @@ template MultiNoteUpdate(n, k){
         noteLeaf_in[i].Cx <== commitment_in[i][0];
         noteLeaf_in[i].Cy <== commitment_in[i][1];
 
+        
         // this component will throw an error if the merkle proof is invalid
         noteExistence[i] = LeafExistence(k);
         noteExistence[i].leaf <== noteLeaf_in[i].out;
@@ -76,4 +72,4 @@ template MultiNoteUpdate(n, k){
 
 }
 
-component main  = MultiNoteUpdate(6,4);
+// component main  = MultiNoteUpdate(6,4);

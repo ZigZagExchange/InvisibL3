@@ -17,7 +17,7 @@ template TxHash(n, m){
     component noteInLeaf[n];
     for(var i=0; i<n; i++){
         noteInLeaf[i] = NoteLeaf();  // note hash
-        noteInLeaf[i].index <== notesIn[i][0];
+        // noteInLeaf[i].index <== notesIn[i][0];
         noteInLeaf[i].Ko[0] <== notesIn[i][1];
         noteInLeaf[i].Ko[1] <== notesIn[i][2];
         noteInLeaf[i].token <== notesIn[i][3];
@@ -31,7 +31,7 @@ template TxHash(n, m){
     component noteOutLeaf[m];
     for(var i=0; i<m; i++){
         noteOutLeaf[i] = NoteLeaf();  // note hash
-        noteOutLeaf[i].index <== notesOut[i][0];
+        // noteOutLeaf[i].index <== notesOut[i][0];
         noteOutLeaf[i].Ko[0] <== notesOut[i][1];
         noteOutLeaf[i].Ko[1] <== notesOut[i][2];
         noteOutLeaf[i].token <== notesOut[i][3];

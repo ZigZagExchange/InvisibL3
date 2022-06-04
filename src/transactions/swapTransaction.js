@@ -170,7 +170,7 @@ module.exports = class Swap {
 
   logSwap(returnSigA, signatureA, returnSigB, signatureB) {
     console.log(
-      "notesIn_A: ",
+      ",notesIn_A: ",
       this.takerTx.notesIn.map((note) => [
         note.index,
         note.address[0],

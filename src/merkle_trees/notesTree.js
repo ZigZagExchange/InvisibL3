@@ -51,16 +51,24 @@ module.exports = class NoteTree extends Tree {
   }
 
   replaceNote(prevNote, newNote) {
-    let idx = this.noteHashes.findIndex((x) => x === prevNote.hash);
+    if (!prevNote && !newNote) {
+      return;
+    } else if (!prevNote) {
+      this.addNote(newNote);
+    } else if (!newNote) {
+      this.removeNote(prevNote.hash);
+    } else {
+      let idx = this.noteHashes.findIndex((x) => x === prevNote.hash);
 
-    this.notes[idx] = newNote;
-    this.noteHashes[idx] = newNote.hash;
+      this.notes[idx] = newNote;
+      this.noteHashes[idx] = newNote.hash;
 
-    const treeIdx = this.leafNodes.findIndex((x) => x === prevNote.hash);
+      const treeIdx = this.leafNodes.findIndex((x) => x === prevNote.hash);
 
-    const noteProof = this.getNoteProof(prevNote.hash);
+      const noteProof = this.getNoteProof(prevNote.hash);
 
-    this.updateNode(newNote.hash, treeIdx, noteProof[0]);
+      this.updateNode(newNote.hash, treeIdx, noteProof[0]);
+    }
   }
 
   removeNote(noteLeaf) {
@@ -74,6 +82,24 @@ module.exports = class NoteTree extends Tree {
     let idx2 = this.leafNodes.findIndex((x) => x === noteLeaf);
 
     this.updateNode(ZERO_HASH, idx2, noteProof[0]);
+  }
+
+  updateNotesWithProofs(notesIn, notesOut) {
+    let proofs = [];
+    let intermidiateRoots = [this.root];
+
+    let len = 5; //Math.max(notesIn.length, notesOut.length);
+    for (let i = 0; i < len; i++) {
+      const noteHash = notesIn[i] ? notesIn[i].hash : ZERO_HASH;
+
+      let proof = this.getNoteProof(noteHash);
+      proofs.push(proof);
+
+      this.replaceNote(notesIn[i], notesOut[i]);
+      intermidiateRoots.push(this.root);
+    }
+
+    return { proofs, intermidiateRoots };
   }
 };
 

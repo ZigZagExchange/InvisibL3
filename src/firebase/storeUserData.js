@@ -75,7 +75,13 @@ function noteDataToJSON(noteData) {
 
 function JSONToNoteData(jsonString) {
   return JSON.parse(jsonString, (k, value) => {
-    return typeof value == "string" ? bigInt(value).value : value;
+    if (typeof value === "string") {
+      return bigInt(value).value;
+    }
+    if (k == "note") {
+      return new Note(value.address, value.commitment, value.token, value.idx);
+    }
+    return value;
   });
 }
 

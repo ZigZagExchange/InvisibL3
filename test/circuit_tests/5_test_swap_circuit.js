@@ -21,43 +21,11 @@ const {
 const assert = chai.assert;
 
 describe("swap transaction verification test", function () {
-  // it("should verify a swap transaction", async () => {
-  //   let circuit;
-  //   try {
-  //     circuit = await wasm_tester(
-  //       path.join(__dirname, "../../circuits/transactions", "swap_tx.circom")
-  //     );
-  //   } catch (e) {
-  //     console.log(e);
-  //     // console.log(
-  //     //   "Uncomment out main component in note_leaf.circom to test address_leaf hashing"
-  //     // );
-  //     return;
-  //   }
-
-  //   const inputs = padSwapInputs(3);
-
-  //   // const json = JSON.stringify(inputs);
-  //   // fs.writeFile("../../snarkjs/swap_tx_input.json", json, (res) => {
-  //   //   console.log(res);
-  //   // });
-
-  //   console.time("t1");
-  //   const w = await circuit.calculateWitness(inputs);
-  //   console.timeEnd("t1");
-
-  //   await circuit.checkConstraints(w);
-  // }).timeout(1000000);
-  // // ===================================================================
-  it("should verify a multiswap transaction", async () => {
+  it("should verify a swap transaction", async () => {
     let circuit;
     try {
       // circuit = await wasm_tester(
-      //   path.join(
-      //     __dirname,
-      //     "../../circuits/transactions",
-      //     "multiswap_tx.circom"
-      //   )
+      //   path.join(__dirname, "../../circuits/transactions", "swap_tx.circom")
       // );
     } catch (e) {
       console.log(e);
@@ -67,27 +35,56 @@ describe("swap transaction verification test", function () {
       return;
     }
 
-    // console.log(circuit);
+    const inputs = padSwapInputs(3);
 
-    const inputs = multiSwapInputs(2, 3);
-
-    // for (const [key, value] of Object.entries(inputs)) {
-    //   console.log(key, ": ", dim(value));
-    // }
-
-    const json = JSON.stringify(inputs);
-    fs.writeFile("../../snarkjs_tests//multiswap/input.json", json, (res) => {
-      console.log(res);
-    });
-
-    // console.log(inputs);
+    console.log(inputs);
 
     // console.time("t1");
     // const w = await circuit.calculateWitness(inputs);
     // console.timeEnd("t1");
 
     // await circuit.checkConstraints(w);
-  }).timeout(100000);
+  }).timeout(30000);
+  // // ===================================================================
+  // it("should verify a multiswap transaction", async () => {
+  //   let circuit;
+  //   try {
+  //     circuit = await wasm_tester(
+  //       path.join(
+  //         __dirname,
+  //         "../../circuits/transactions",
+  //         "multiswap_tx.circom"
+  //       )
+  //     );
+  //   } catch (e) {
+  //     console.log(e);
+  //     // console.log(
+  //     //   "Uncomment out main component in note_leaf.circom to test address_leaf hashing"
+  //     // );
+  //     return;
+  //   }
+
+  //   // console.log(circuit);
+
+  //   const inputs = multiSwapInputs(2, 3);
+
+  //   // for (const [key, value] of Object.entries(inputs)) {
+  //   //   console.log(key, ": ", dim(value));
+  //   // }
+
+  //   // const json = JSON.stringify(inputs);
+  //   // fs.writeFile("../../snarkjs_tests//multiswap/input.json", json, (res) => {
+  //   //   console.log(res);
+  //   // });
+
+  //   // console.log(inputs);
+
+  //   // console.time("t1");
+  //   // const w = await circuit.calculateWitness(inputs);
+  //   // console.timeEnd("t1");
+
+  //   // await circuit.checkConstraints(w);
+  // }).timeout(100000);
 });
 
 function dim(mat) {

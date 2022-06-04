@@ -9,6 +9,7 @@ const bigInt = require("big-integer");
 
 const User = require("../src/notes/User.js");
 const Note = require("../src/notes/noteUtils").Note;
+const NoteTree = require("../src/merkle_trees/notesTree.js");
 const NoteTransaction = require("../src/transactions/noteTransaction");
 const Swap = require("../src/transactions/swapTransaction");
 
@@ -19,36 +20,18 @@ const {
   fetchUserIds,
   fetchAllTokens,
 } = require("../src/firebase/storeUserData");
+const poseidon = require("../circomlib/src/poseidon");
 
 //
+
+const ZERO_HASH =
+  1972593120533667380477339603313231606809289461898419477679735141070009144584n;
 
 async function fetchUsers() {
   const ids = await fetchUserIds();
 
   const userA = await fetchStoredUser(ids["1"]);
   const userB = await fetchStoredUser(ids["2"]);
-
-  tx_r = 1234567890987654321n;
-
-  const subaddressB = userB.generateSubaddress(5);
-
-  //   const sum = userA.noteData["1"].reduce(
-  //     (partialSum, nData) => partialSum + nData.amount,
-  //     0n
-  //   );
-  console.log(userA.noteData["2"]);
-
-  const spendAmount = 15534000n;
-  20296700n;
-  const outNoteDataA = userA.generateOutputNotes(
-    spendAmount,
-    1,
-    subaddressB.Kvi,
-    subaddressB.Ksi,
-    tx_r
-  );
-
-  console.log(outNoteDataA);
 }
 
 async function storeUsers() {
@@ -196,7 +179,9 @@ async function testSwap() {
   // txA.verifySignature_new(sigA);
 
   // txA.logHashTxInputs();
-  // txA.logTransaction(retAddrSigA, sigA);
+  txA.logTransaction(retAddrSigA, sigA);
+
+  ///=============================================================
 
   // User B receives X amount of token 1 from A
   // todo (receive hidden values or just unhidden and the hidden values only end up onchain)
@@ -255,22 +240,54 @@ async function testSwap() {
   // txB.verifyPrivReturnAddressSig(retAddrSigB);
   // txB.verifySignature(sigB);
 
-  // User A receives X amount of token 2 from B
+  // Note merkle tree ==========================================================
+
+  const noteTree = new NoteTree(
+    Array.from(outNoteDataA.notesIn.concat(outNoteDataB.notesIn)),
+    4
+  );
+
+  const initialRoot = noteTree.root;
+
+  let updateProofsA = noteTree.updateNotesWithProofs(
+    outNoteDataA.notesIn,
+    outNoteDataA.notesOut
+  );
+
+  let paths2rootPosA = updateProofsA.proofs.map((p) => p[1]);
+  let paths2rootA = updateProofsA.proofs.map((p) => p[0]);
+  let intermidiateRootsA = updateProofsA.intermidiateRoots;
+  console.log("initialRoot: ", initialRoot);
+  console.log(",intermidiateRoots_A: ", intermidiateRootsA);
+  console.log(",paths2rootPos_A: ", paths2rootPosA);
+  console.log(",paths2root_A: ", paths2rootA);
+
+  let updateProofsB = noteTree.updateNotesWithProofs(
+    outNoteDataB.notesIn,
+    outNoteDataB.notesOut
+  );
+
+  let paths2rootPosB = updateProofsB.proofs.map((p) => p[1]);
+  let paths2rootB = updateProofsB.proofs.map((p) => p[0]);
+  let intermidiateRootsB = updateProofsB.intermidiateRoots;
+  console.log(",intermidiateRoots_B: ", intermidiateRootsB);
+  console.log(",paths2rootPos_B: ", paths2rootPosB);
+  console.log(",paths2root_B: ", paths2rootB);
 
   // //* Transactions should form a valid swap ===============================================
 
   const swap = new Swap(txA, txB);
 
-  swap.verify(
-    retAddrSigA,
-    sigA,
-    retAddrSigB,
-    sigB,
-    TOKEN_X,
-    TOKEN_X_PRICE,
-    TOKEN_Y,
-    TOKEN_Y_PRICE
-  );
+  // swap.verify(
+  //   retAddrSigA,
+  //   sigA,
+  //   retAddrSigB,
+  //   sigB,
+  //   TOKEN_X,
+  //   TOKEN_X_PRICE,
+  //   TOKEN_Y,
+  //   TOKEN_Y_PRICE
+  // );
 
   swap.logSwap(retAddrSigA, sigA, retAddrSigB, sigB);
 }
