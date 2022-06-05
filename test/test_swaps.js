@@ -24,6 +24,8 @@ const poseidon = require("../circomlib/src/poseidon");
 
 //
 
+const NUM_NOTES = 3;
+
 const ZERO_HASH =
   1972593120533667380477339603313231606809289461898419477679735141070009144584n;
 
@@ -75,7 +77,7 @@ async function storeUsers() {
   let amounts = [];
   let blindings = [];
   let kos = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < NUM_NOTES; i++) {
     let amount = randomBigInt(32) * 100n;
     let blinding = randomBigInt(240);
 
@@ -92,7 +94,7 @@ async function storeUsers() {
   userA.addNotes(notes, amounts, blindings, kos);
 
   let newNotes = [];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < NUM_NOTES; i++) {
     let n = notes[i];
     let newNote = new Note(n.address, n.commitment, 1);
     newNotes.push(newNote);
@@ -179,7 +181,7 @@ async function testSwap() {
   // txA.verifySignature_new(sigA);
 
   // txA.logHashTxInputs();
-  txA.logTransaction(retAddrSigA, sigA);
+  // txA.logTransaction(retAddrSigA, sigA);
 
   ///=============================================================
 

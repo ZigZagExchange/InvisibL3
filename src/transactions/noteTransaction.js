@@ -12,6 +12,7 @@ const noteUtils = require("../notes/noteUtils.js");
 
 //TODO Temporary randomness for one time address
 const RAND_SEED = 123456789;
+const NUM_NOTES = 3;
 
 module.exports = class NoteTransaction {
   constructor(
@@ -120,8 +121,8 @@ module.exports = class NoteTransaction {
 
   signTransaction_new(note_priv_keys, cmtz_priv_keys) {
     // Currently only supports max 6 notes per transaction (14 inputs, one is the msg_hash)
-    if (note_priv_keys.length > 6) {
-      throw "currently max 6 notes per transaction allowed";
+    if (note_priv_keys.length > NUM_NOTES) {
+      throw "currently max NUM_NOTES notes per transaction allowed";
     }
     if (note_priv_keys.length !== cmtz_priv_keys.length) {
       throw "key lengths missmatch";
@@ -132,7 +133,7 @@ module.exports = class NoteTransaction {
     let c_input = [tx_hash];
 
     //?  c = H(tx_hash, aG)
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= note_priv_keys.length) {
         c_input.push(0n);
         c_input.push(1n);
@@ -152,7 +153,7 @@ module.exports = class NoteTransaction {
     //? ri = a + k + c*z,  where c is trimmed to 16 bytes
     let sig = [c];
     let c_trimed = noteUtils.trimHash(c);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= note_priv_keys.length) {
         sig.push(0n);
       } else {
@@ -210,7 +211,7 @@ module.exports = class NoteTransaction {
   //   );
 
   //   // Currently only supports max 6 notes per transaction
-  //   if (this.notesIn.length > 5) {
+  //   if (this.notesIn.length > NUM_NOTES) {
   //     throw "currently max 6 notes per transaction allowed";
   //   }
   //   if (this.notesIn.length !== signature.length - 1) {
@@ -251,7 +252,7 @@ module.exports = class NoteTransaction {
     );
 
     // Currently only supports max 6 notes per transaction
-    if (this.notesIn.length > 5) {
+    if (this.notesIn.length > NUM_NOTES) {
       throw "currently max 6 notes per transaction allowed";
     }
     // if (this.notesIn.length !== signature.length - 1) {
@@ -266,7 +267,7 @@ module.exports = class NoteTransaction {
 
     //?  c = H(m, rG - K - c*Z)
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= this.notesIn.length) {
         c_input.push(0n);
         c_input.push(1n);
@@ -351,12 +352,12 @@ module.exports = class NoteTransaction {
       18186447106104122485063459425619848727822300266366701424845346221645122918962n;
 
     let in_notes_hash;
-    if (this.notesIn.length > 5 || this.notesOut.length > 5) {
-      throw "currently max 5 notes per transaction allowed";
+    if (this.notesIn.length > NUM_NOTES || this.notesOut.length > NUM_NOTES) {
+      throw "currently max NUM_NOTES notes per transaction allowed";
     }
 
     let hashes_in = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= this.notesIn.length) {
         hashes_in.push(ZERO_HASH);
       } else {
@@ -372,7 +373,7 @@ module.exports = class NoteTransaction {
     // ===================================================
     let out_notes_hash;
     let hashes_out = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= this.notesOut.length) {
         hashes_out.push(ZERO_HASH);
       } else {

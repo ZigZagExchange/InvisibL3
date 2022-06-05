@@ -3,6 +3,7 @@ const Tree = require("./tree.js");
 
 const ZERO_HASH =
   1972593120533667380477339603313231606809289461898419477679735141070009144584n;
+const NUM_NOTES = 3;
 
 module.exports = class NoteTree extends Tree {
   constructor(_notes, depth = 4) {
@@ -88,7 +89,7 @@ module.exports = class NoteTree extends Tree {
     let proofs = [];
     let intermidiateRoots = [this.root];
 
-    let len = 5; //Math.max(notesIn.length, notesOut.length);
+    let len = NUM_NOTES; //Math.max(notesIn.length, notesOut.length);
     for (let i = 0; i < len; i++) {
       const noteHash = notesIn[i] ? notesIn[i].hash : ZERO_HASH;
 

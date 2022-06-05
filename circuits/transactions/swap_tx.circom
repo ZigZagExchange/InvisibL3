@@ -35,7 +35,7 @@ template SwapTransaction(n, k){
     takerTranscation.tokenSpentPrice <== tokenSpentPrice_A;
     takerTranscation.tokenReceived <== tokenReceived_A;
     takerTranscation.tokenReceivedPrice <== tokenReceivedPrice_A;
-    takerTranscation.Ko[0] <== notesOut_B[0][1];
+    takerTranscation.Ko[0] <== notesOut_B[0][1];  // This is the address of maker tx notesOut[0]
     takerTranscation.Ko[1] <== notesOut_B[0][2];
     takerTranscation.returnAddressSig[0] <== returnAddressSig_A[0];
     takerTranscation.returnAddressSig[1] <== returnAddressSig_A[1];
@@ -102,57 +102,56 @@ template SwapTransaction(n, k){
     signal input paths2rootPos_B[n][k];
     signal input paths2root_B[n][k];
 
-    component makerTransaction = noteTransaction(n, k);
-    makerTransaction.tokenSpent <== tokenSpent_B;
-    makerTransaction.tokenSpentPrice <== tokenSpentPrice_B;
-    makerTransaction.tokenReceived <== tokenReceived_B;
-    makerTransaction.tokenReceivedPrice <== tokenReceivedPrice_B;
-    makerTransaction.Ko[0] <== notesOut_A[0][1];
-    makerTransaction.Ko[1] <== notesOut_A[0][2];
-    makerTransaction.returnAddressSig[0] <== returnAddressSig_B[0];
-    makerTransaction.returnAddressSig[1] <== returnAddressSig_B[1];
-    makerTransaction.signature[0] <== signature_B[0];
-
+    component makerTranscation = noteTransaction(n, k);
+    makerTranscation.tokenSpent <== tokenSpent_B;
+    makerTranscation.tokenSpentPrice <== tokenSpentPrice_B;
+    makerTranscation.tokenReceived <== tokenReceived_B;
+    makerTranscation.tokenReceivedPrice <== tokenReceivedPrice_B;
+    makerTranscation.Ko[0] <== notesOut_A[0][1];   // This is the address of taker tx notesOut[0]
+    makerTranscation.Ko[1] <== notesOut_A[0][2];
+    makerTranscation.returnAddressSig[0] <== returnAddressSig_B[0];
+    makerTranscation.returnAddressSig[1] <== returnAddressSig_B[1];
+    makerTranscation.signature[0] <== signature_B[0];
 
     for (var i=0; i<n; i++) {
-        makerTransaction.notesIn[i][0] <== notesIn_B[i][0];
-        makerTransaction.notesIn[i][1] <== notesIn_B[i][1];
-        makerTransaction.notesIn[i][2] <== notesIn_B[i][2];
-        makerTransaction.notesIn[i][3] <== notesIn_B[i][3];
-        makerTransaction.notesIn[i][4] <== notesIn_B[i][4];
-        makerTransaction.notesIn[i][5] <== notesIn_B[i][5];
+        makerTranscation.notesIn[i][0] <== notesIn_B[i][0];
+        makerTranscation.notesIn[i][1] <== notesIn_B[i][1];
+        makerTranscation.notesIn[i][2] <== notesIn_B[i][2];
+        makerTranscation.notesIn[i][3] <== notesIn_B[i][3];
+        makerTranscation.notesIn[i][4] <== notesIn_B[i][4];
+        makerTranscation.notesIn[i][5] <== notesIn_B[i][5];
 
-        makerTransaction.pseudoComms[i][0] <== pseudoComms_B[i][0];
-        makerTransaction.pseudoComms[i][1] <== pseudoComms_B[i][1];
+        makerTranscation.pseudoComms[i][0] <== pseudoComms_B[i][0];
+        makerTranscation.pseudoComms[i][1] <== pseudoComms_B[i][1];
         
-        makerTransaction.pos[i] <== pos_B[i];
-        makerTransaction.amountsIn[i] <== amountsIn_B[i];
-        makerTransaction.blindingsIn[i] <== blindingsIn_B[i];
-        makerTransaction.signature[i+1] <== signature_B[i+1];
+        makerTranscation.pos[i] <== pos_B[i];
+        makerTranscation.amountsIn[i] <== amountsIn_B[i];
+        makerTranscation.blindingsIn[i] <== blindingsIn_B[i];
+        makerTranscation.signature[i+1] <== signature_B[i+1];
     }
 
     for (var i=0; i<n; i++) {
-        makerTransaction.notesOut[i][0] <== notesOut_B[i][0];
-        makerTransaction.notesOut[i][1] <== notesOut_B[i][1];
-        makerTransaction.notesOut[i][2] <== notesOut_B[i][2];
-        makerTransaction.notesOut[i][3] <== notesOut_B[i][3];
-        makerTransaction.notesOut[i][4] <== notesOut_B[i][4];
-        makerTransaction.notesOut[i][5] <== notesOut_B[i][5];
+        makerTranscation.notesOut[i][0] <== notesOut_B[i][0];
+        makerTranscation.notesOut[i][1] <== notesOut_B[i][1];
+        makerTranscation.notesOut[i][2] <== notesOut_B[i][2];
+        makerTranscation.notesOut[i][3] <== notesOut_B[i][3];
+        makerTranscation.notesOut[i][4] <== notesOut_B[i][4];
+        makerTranscation.notesOut[i][5] <== notesOut_B[i][5];
 
-        makerTransaction.amountsOut[i] <== amountsOut_B[i];
-        makerTransaction.blindingsOut[i] <== blindingsOut_B[i];
+        makerTranscation.amountsOut[i] <== amountsOut_B[i];
+        makerTranscation.blindingsOut[i] <== blindingsOut_B[i];
     }
 
+    makerTranscation.initialRoot <== takerTranscation.updatedRoot;
+    makerTranscation.intermidiateRoots[0] <== intermidiateRoots_B[0];
+    for (var i=0; i<n; i++) {
+        makerTranscation.intermidiateRoots[i+1] <== intermidiateRoots_B[i+1];
+        for (var j=0; j<k; j++) {
+            makerTranscation.paths2root[i][j] <== paths2root_B[i][j];
+            makerTranscation.paths2rootPos[i][j] <== paths2rootPos_B[i][j];
+        }
+    }
 
-    // makerTranscation.initialRoot <== takerTranscation.updatedRoot;
-    // makerTranscation.intermidiateRoots[0] <== intermidiateRoots_B[0];
-    // for (var i=0; i<n; i++) {
-    //     makerTranscation.intermidiateRoots[i+1] <== intermidiateRoots_B[i+1];
-    //     for (var j=0; j<k; j++) {
-    //         makerTranscation.paths2root[i][j] <== paths2root_B[i][j];
-    //         makerTranscation.paths2rootPos[i][j] <== paths2rootPos_B[i][j];
-    //     }
-    // }
     
 
     //* Verify swap quotes ========================================================
@@ -167,7 +166,7 @@ template SwapTransaction(n, k){
 }
 
 
-component main = SwapTransaction(5,4);
+// component main = SwapTransaction(3,4);
 
 
 
