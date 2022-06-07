@@ -4,8 +4,8 @@ include "../existence_checks/note_leaf.circom";
 
 template TxHash(n, m){
     // n is the number of notesIn, m is the number of notesOut
-    signal input notesIn[n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input notesOut[m][6];
+    signal input notesIn[n][5];   // note = [index, Kx, Ky, token, Comm]
+    signal input notesOut[m][5];
     signal input tokenSpent;
     signal input tokenSpentPrice;
     signal input retSigR;
@@ -21,8 +21,7 @@ template TxHash(n, m){
         noteInLeaf[i].Ko[0] <== notesIn[i][1];
         noteInLeaf[i].Ko[1] <== notesIn[i][2];
         noteInLeaf[i].token <== notesIn[i][3];
-        noteInLeaf[i].Cx <== notesIn[i][4];
-        noteInLeaf[i].Cy <== notesIn[i][5];
+        noteInLeaf[i].Comm <== notesIn[i][4];
 
         notesInHash.inputs[i] <== noteInLeaf[i].out;
     }
@@ -35,13 +34,13 @@ template TxHash(n, m){
         noteOutLeaf[i].Ko[0] <== notesOut[i][1];
         noteOutLeaf[i].Ko[1] <== notesOut[i][2];
         noteOutLeaf[i].token <== notesOut[i][3];
-        noteOutLeaf[i].Cx <== notesOut[i][4];
-        noteOutLeaf[i].Cy <== notesOut[i][5];
+        noteOutLeaf[i].Comm <== notesOut[i][4];
 
         notesOutHash.inputs[i] <== noteOutLeaf[i].out;
     }
 
-    
+    // log(notesInHash.out);
+    // log(notesOutHash.out);
 
     component txHash = Poseidon(5);
     txHash.inputs[0] <== notesInHash.out;
@@ -55,5 +54,5 @@ template TxHash(n, m){
 }
 
 
-// component main  = TxHash(5,5);
+// component main  = TxHash(3,3);
 

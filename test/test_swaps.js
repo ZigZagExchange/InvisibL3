@@ -27,7 +27,7 @@ const poseidon = require("../circomlib/src/poseidon");
 const NUM_NOTES = 3;
 
 const ZERO_HASH =
-  1972593120533667380477339603313231606809289461898419477679735141070009144584n;
+  3188939322973067328877758594842858906904921945741806511873286077735470116993n;
 
 async function fetchUsers() {
   const ids = await fetchUserIds();
@@ -117,6 +117,8 @@ async function testSwap() {
 
   const tokenData = await fetchAllTokens();
 
+  userA.pedersenToPoseidon();
+
   const tx_r = 1234567890987654321n;
 
   // User A wants to swap X amount of token 1 to token 2 with B
@@ -135,29 +137,10 @@ async function testSwap() {
     tx_r
   );
 
-  let cmtzDataA = noteUtils.cmtzPrivKeys(
-    outNoteDataA.notesIn,
-    outNoteDataA.amountsIn,
-    outNoteDataA.blindingsIn,
-    outNoteDataA.blindingsOut
-  );
-
-  let pseudoCommsA = noteUtils.newCommitments(
-    outNoteDataA.amountsIn,
-    cmtzDataA.new_blindings
-  );
-
-  const cmtz_pub_keys = noteUtils.cmtzPubKeys(
-    outNoteDataA.notesIn,
-    pseudoCommsA,
-    cmtzDataA.pos
-  );
-
   // User A sends X amount of token 1 to B
+
   const txA = new NoteTransaction(
     outNoteDataA.notesIn,
-    pseudoCommsA,
-    cmtzDataA.pos,
     outNoteDataA.notesOut,
     outNoteDataA.amountsIn,
     outNoteDataA.amountsOut,
@@ -175,18 +158,19 @@ async function testSwap() {
   let subPrivKeysA = userA.subaddressPrivKeys(1); // ith subaddress private keys
   let retAddrSigA = txA.signPrivateReturnAddress(subPrivKeysA.ksi);
 
-  let sigA = txA.signTransaction_new(outNoteDataA.kosIn, cmtzDataA.priv_keys_z);
+  let sigA = txA.signTransaction(outNoteDataA.kosIn);
 
   // txA.verifyPrivReturnAddressSig(retAddrSigA);
-  // txA.verifySignature_new(sigA);
 
+  // txA.verifySignature(sigA);
+
+  // txA.logVerifySignature(sigA);
   // txA.logHashTxInputs();
   // txA.logTransaction(retAddrSigA, sigA);
 
   ///=============================================================
 
   // User B receives X amount of token 1 from A
-  // todo (receive hidden values or just unhidden and the hidden values only end up onchain)
 
   //* User B sends Y amount of token 2 to A =====================================================
 
@@ -201,22 +185,8 @@ async function testSwap() {
     tx_r
   );
 
-  let cmtzDataB = noteUtils.cmtzPrivKeys(
-    outNoteDataB.notesIn,
-    outNoteDataB.amountsIn,
-    outNoteDataB.blindingsIn,
-    outNoteDataB.blindingsOut
-  );
-
-  let pseudoCommsB = noteUtils.newCommitments(
-    outNoteDataB.amountsIn,
-    cmtzDataB.new_blindings
-  );
-
   const txB = new NoteTransaction(
     outNoteDataB.notesIn,
-    pseudoCommsB,
-    cmtzDataB.pos,
     outNoteDataB.notesOut,
     outNoteDataB.amountsIn,
     outNoteDataB.amountsOut,
@@ -234,10 +204,7 @@ async function testSwap() {
   let subPrivKeysB = userB.subaddressPrivKeys(1); // ith subaddress private keys
   const retAddrSigB = txB.signPrivateReturnAddress(subPrivKeysB.ksi);
 
-  const sigB = txB.signTransaction_new(
-    outNoteDataB.kosIn,
-    cmtzDataB.priv_keys_z
-  );
+  const sigB = txB.signTransaction(outNoteDataB.kosIn);
 
   // txB.verifyPrivReturnAddressSig(retAddrSigB);
   // txB.verifySignature(sigB);
@@ -256,10 +223,35 @@ async function testSwap() {
     outNoteDataA.notesOut
   );
 
+  // console.log(
+  //   "Ko_in: ",
+  //   outNoteDataA.notesIn.map((n) => n.address)
+  // );
+  // console.log(
+  //   ",token_in: ",
+  //   outNoteDataA.notesIn.map((n) => n.token)
+  // );
+  // console.log(
+  //   ",commitment_in: ",
+  //   outNoteDataA.notesIn.map((n) => n.commitment)
+  // );
+  // console.log(
+  //   ",Ko_out: ",
+  //   outNoteDataA.notesOut.map((n) => n.address)
+  // );
+  // console.log(
+  //   ",token_out: ",
+  //   outNoteDataA.notesOut.map((n) => n.token)
+  // );
+  // console.log(
+  //   ",commitment_out: ",
+  //   outNoteDataA.notesOut.map((n) => n.commitment)
+  // );
+
   let paths2rootPosA = updateProofsA.proofs.map((p) => p[1]);
   let paths2rootA = updateProofsA.proofs.map((p) => p[0]);
   let intermidiateRootsA = updateProofsA.intermidiateRoots;
-  console.log("initialRoot: ", initialRoot);
+  console.log(",initialRoot: ", initialRoot);
   console.log(",intermidiateRoots_A: ", intermidiateRootsA);
   console.log(",paths2rootPos_A: ", paths2rootPosA);
   console.log(",paths2root_A: ", paths2rootA);

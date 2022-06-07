@@ -36,14 +36,14 @@ describe("swap transaction verification test", function () {
   //   }
 
   //   const inputs = padSwapInputs(3);
+  //   // console.log(inputs);
 
   //   console.time("t1");
-  //   for (let i = 0; i < 1; i++) {
-  //     const w = await circuit.calculateWitness(inputs);
-  //   }
+  //   const w = await circuit.calculateWitness(inputs);
+
   //   console.timeEnd("t1");
 
-  //   // await circuit.checkConstraints(w);
+  //   await circuit.checkConstraints(w);
   // }).timeout(300000);
   //? // ===================================================================
   it("should verify a multiswap transaction", async () => {
@@ -64,7 +64,7 @@ describe("swap transaction verification test", function () {
       return;
     }
 
-    // console.log(circuit);
+    console.log(circuit);
 
     const inputs = multiSwapInputs(1, 3);
 

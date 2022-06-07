@@ -10,11 +10,11 @@ template MultiNoteUpdate(n, k){
 
     signal input Ko_in[n][2]; 
     signal input token_in[n];
-    signal input commitment_in[n][2];
+    signal input commitment_in[n];
 
     signal input Ko_out[n][2]; 
     signal input token_out[n];
-    signal input commitment_out[n][2];
+    signal input commitment_out[n];
 
     signal input intermidiateRoots[n + 1];
     signal input paths2rootPos[n][k];
@@ -35,8 +35,7 @@ template MultiNoteUpdate(n, k){
         noteLeaf_in[i].Ko[0] <== Ko_in[i][0];
         noteLeaf_in[i].Ko[1] <== Ko_in[i][1];
         noteLeaf_in[i].token  <== token_in[i];
-        noteLeaf_in[i].Cx <== commitment_in[i][0];
-        noteLeaf_in[i].Cy <== commitment_in[i][1];
+        noteLeaf_in[i].Comm <== commitment_in[i];
 
         
         // this component will throw an error if the merkle proof is invalid
@@ -51,8 +50,7 @@ template MultiNoteUpdate(n, k){
         noteLeaf_out[i].Ko[0] <== Ko_out[i][0];
         noteLeaf_out[i].Ko[1] <== Ko_out[i][1];
         noteLeaf_out[i].token  <== token_out[i];
-        noteLeaf_out[i].Cx <== commitment_out[i][0];
-        noteLeaf_out[i].Cy <== commitment_out[i][1];
+        noteLeaf_out[i].Comm <== commitment_out[i];
 
         updatedRoot[i] = GetMerkleRoot(k);
         updatedRoot[i].leaf <== noteLeaf_out[i].out;
@@ -69,7 +67,6 @@ template MultiNoteUpdate(n, k){
     }
 
     newComputedRoot <== intermidiateRoots[n];
-
 }
 
-// component main  = MultiNoteUpdate(6,4);
+// component main  = MultiNoteUpdate(3,4);

@@ -44,7 +44,6 @@ describe("transaction verification test", function () {
   //   }
   //   // let inputs = returnAddressSigInputs;
   //   let input = padSwapInputs(5);
-
   //   const w = await circuit.calculateWitness({
   //     c: input.returnAddressSig_A[0],
   //     r: input.returnAddressSig_A[1],
@@ -52,9 +51,35 @@ describe("transaction verification test", function () {
   //     tokenReceivedPrice: input.tokenReceivedPrice_A,
   //     Ko: input.Ko_A,
   //   });
-
   //   await circuit.checkConstraints(w);
   // }).timeout(10000);
+  // // ============================================================
+  it("should check verifying a commitment", async () => {
+    let circuit;
+    try {
+      circuit = await wasm_tester(
+        path.join(
+          __dirname,
+          "../../circuits/signatures",
+          "verify_ret_addr_sig.circom"
+        )
+      );
+    } catch (e) {
+      // console.log(e);
+      console.log("Uncomment out main component");
+      return;
+    }
+    // let inputs = returnAddressSigInputs;
+    let input = padSwapInputs(5);
+    const w = await circuit.calculateWitness({
+      c: input.returnAddressSig_A[0],
+      r: input.returnAddressSig_A[1],
+      tokenReceived: input.tokenReceived_A,
+      tokenReceivedPrice: input.tokenReceivedPrice_A,
+      Ko: input.Ko_A,
+    });
+    await circuit.checkConstraints(w);
+  }).timeout(10000);
   // // ============================================================
   // it("should check verifying input and output sums by cmtz", async () => {
   //   let circuit;
@@ -99,22 +124,22 @@ describe("transaction verification test", function () {
   // }).timeout(10000);
   // // ============================================================
   // it("should check verifying signature", async () => {
-  //   // checks H(aiG) = H(riG - Ki - cZi)  for all i in [0, n]
   //   let circuit;
   //   try {
   //     circuit = await wasm_tester(
   //       path.join(__dirname, "../../circuits/signatures", "verify_sig.circom")
   //     );
   //   } catch (e) {
+  //     console.log(e);
   //     console.log(
   //       "Uncomment out main component in note_leaf.circom to test address_leaf hashing"
   //     );
   //     return;
   //   }
-  //   let inputs = padSigVerificationInputs(5);
+  //   let inputs = padSigVerificationInputs(3);
+
   //   const w = await circuit.calculateWitness(inputs);
   //   // await circuit.checkConstraints(w);
-  //   // await circuit.assertOut(w, { out: c_input });
   // }).timeout(10000);
   // // ============================================================
   // it("should check hashing a transaction", async () => {
@@ -128,15 +153,15 @@ describe("transaction verification test", function () {
   //       )
   //     );
   //   } catch (e) {
-  //     // console.log(e);
-  //     console.log(
-  //       "Uncomment out main component in note_leaf.circom to test address_leaf hashing"
-  //     );
+  //     console.log(e);
+  //     // console.log(
+  //     //   "Uncomment out main component in note_leaf.circom to test address_leaf hashing"
+  //     // );
   //     return;
   //   }
-  //   const inputs = padTxHashInputs(5);
+  //   const inputs = padTxHashInputs(3);
   //   const w = await circuit.calculateWitness(inputs);
-  //   await circuit.checkConstraints(w);
+  //   // await circuit.checkConstraints(w);
   // }).timeout(10000);
   //// ============================================================
   it("should check verifying a transaction", async () => {
@@ -156,12 +181,11 @@ describe("transaction verification test", function () {
       // );
       return;
     }
-    const inputs = padTxInputs(5);
-
+    const inputs = padTxInputs(3);
     // console.log(inputs);
 
     const w = await circuit.calculateWitness(inputs);
 
-    // await circuit.checkConstraints(w);
+    await circuit.checkConstraints(w);
   }).timeout(30000);
 });

@@ -5,13 +5,11 @@ template SwapTransaction(n, k){
     // n is the number of notes to be swapped
     // all 4 should be the same change it later
 
-    signal input notesOut_A[n][6];
-    signal input notesOut_B[n][6];
+    signal input notesOut_A[n][5];
+    signal input notesOut_B[n][5];
 
     //* Taker transaction (denoted by A) ==========================================
-    signal input notesIn_A[n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input pseudoComms_A[n][2];
-    signal input pos_A[n];
+    signal input notesIn_A[n][5];   // note = [index, Kx, Ky, token, Comm]
     signal input amountsIn_A[n];
     signal input amountsOut_A[n];
     signal input blindingsIn_A[n];
@@ -47,12 +45,7 @@ template SwapTransaction(n, k){
         takerTranscation.notesIn[i][2] <== notesIn_A[i][2];
         takerTranscation.notesIn[i][3] <== notesIn_A[i][3];
         takerTranscation.notesIn[i][4] <== notesIn_A[i][4];
-        takerTranscation.notesIn[i][5] <== notesIn_A[i][5];
 
-        takerTranscation.pseudoComms[i][0] <== pseudoComms_A[i][0];
-        takerTranscation.pseudoComms[i][1] <== pseudoComms_A[i][1];
-        
-        takerTranscation.pos[i] <== pos_A[i];
         takerTranscation.amountsIn[i] <== amountsIn_A[i];
         takerTranscation.blindingsIn[i] <== blindingsIn_A[i];
         takerTranscation.signature[i+1] <== signature_A[i+1];
@@ -64,7 +57,6 @@ template SwapTransaction(n, k){
         takerTranscation.notesOut[i][2] <== notesOut_A[i][2];
         takerTranscation.notesOut[i][3] <== notesOut_A[i][3];
         takerTranscation.notesOut[i][4] <== notesOut_A[i][4];
-        takerTranscation.notesOut[i][5] <== notesOut_A[i][5];
 
         takerTranscation.amountsOut[i] <== amountsOut_A[i];
         takerTranscation.blindingsOut[i] <== blindingsOut_A[i];
@@ -83,9 +75,7 @@ template SwapTransaction(n, k){
 
 
     //* Maker transaction (denoted by B) ==========================================
-    signal input notesIn_B[n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input pseudoComms_B[n][2];
-    signal input pos_B[n];
+    signal input notesIn_B[n][5];   // note = [index, Kx, Ky, token, Comm]
     signal input amountsIn_B[n];
     signal input amountsOut_B[n];
     signal input blindingsIn_B[n];
@@ -119,12 +109,7 @@ template SwapTransaction(n, k){
         makerTranscation.notesIn[i][2] <== notesIn_B[i][2];
         makerTranscation.notesIn[i][3] <== notesIn_B[i][3];
         makerTranscation.notesIn[i][4] <== notesIn_B[i][4];
-        makerTranscation.notesIn[i][5] <== notesIn_B[i][5];
 
-        makerTranscation.pseudoComms[i][0] <== pseudoComms_B[i][0];
-        makerTranscation.pseudoComms[i][1] <== pseudoComms_B[i][1];
-        
-        makerTranscation.pos[i] <== pos_B[i];
         makerTranscation.amountsIn[i] <== amountsIn_B[i];
         makerTranscation.blindingsIn[i] <== blindingsIn_B[i];
         makerTranscation.signature[i+1] <== signature_B[i+1];
@@ -136,7 +121,6 @@ template SwapTransaction(n, k){
         makerTranscation.notesOut[i][2] <== notesOut_B[i][2];
         makerTranscation.notesOut[i][3] <== notesOut_B[i][3];
         makerTranscation.notesOut[i][4] <== notesOut_B[i][4];
-        makerTranscation.notesOut[i][5] <== notesOut_B[i][5];
 
         makerTranscation.amountsOut[i] <== amountsOut_B[i];
         makerTranscation.blindingsOut[i] <== blindingsOut_B[i];
@@ -161,8 +145,7 @@ template SwapTransaction(n, k){
     verifySwap.amountY <== amountsOut_B[0];
     verifySwap.XPrice <== tokenSpentPrice_A;
     verifySwap.YPrice <== tokenReceivedPrice_A;
-
-    
+ 
 }
 
 

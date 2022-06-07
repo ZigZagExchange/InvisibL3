@@ -53,8 +53,15 @@ module.exports = class User {
       if (nData.note.token !== token) {
         throw "token missmatch in generate output notes";
       }
+
+      let newNote = new Note(
+        nData.note.address,
+        poseidon([nData.amount, nData.blinding]),
+        token,
+        nData.note.index
+      );
       inputSum += nData.amount;
-      notesIn.push(nData.note);
+      notesIn.push(newNote);
       amountsIn.push(nData.amount);
       blindingsIn.push(nData.blinding);
       kosIn.push(nData.ko);
@@ -69,7 +76,8 @@ module.exports = class User {
     let hiddenValues1 = this.hideValuesForRecipient(Kv, amount, r);
     let Ko1 = generateOneTimeAddress(Kv, Ks, r);
 
-    let comm1 = newCommitment(amount, hiddenValues1.yt);
+    // let comm1 = newCommitment(amount, hiddenValues1.yt);
+    let comm1 = poseidon([amount, hiddenValues1.yt]);
     let note1 = new Note(Ko1, comm1, token);
 
     notesOut.push(note1);
@@ -81,7 +89,8 @@ module.exports = class User {
     let hiddenValues2 = this.hideValuesForRecipient(dummyKey, feeAmount, r);
     let Ko2 = generateOneTimeAddress(dummyKey, Ks, r);
 
-    let comm2 = newCommitment(feeAmount, hiddenValues2.yt);
+    // let comm2 = newCommitment(feeAmount, hiddenValues2.yt);
+    let comm2 = poseidon([feeAmount, hiddenValues2.yt]);
     let note2 = new Note(Ko2, comm2, token);
 
     notesOut.push(note2);
@@ -97,7 +106,8 @@ module.exports = class User {
     );
     let Ko3 = generateOneTimeAddress(this.pubViewKey, this.pubSpendKey, r);
 
-    let comm3 = newCommitment(inputSum - amount - feeAmount, hiddenValues3.yt);
+    // let comm3 = newCommitment(inputSum - amount - feeAmount, hiddenValues3.yt);
+    let comm3 = poseidon([inputSum - amount - feeAmount, hiddenValues3.yt]);
     let note3 = new Note(Ko3, comm3, token);
 
     notesOut.push(note3);
@@ -187,6 +197,29 @@ module.exports = class User {
     const diff = outputAmount * tokenOutPrice - inputAmount * tokenInPrice;
 
     return { outputAmount, diff };
+  }
+
+  pedersenToPoseidon() {
+    let converted = {};
+    for (const [key, value] of Object.entries(this.noteData)) {
+      let notes = value.map((noteData) => {
+        return {
+          note: new Note(
+            noteData.note.address,
+            poseidon([noteData.amount, noteData.blinding]),
+            noteData.note.token,
+            noteData.note.index
+          ),
+          amount: noteData.amount,
+          blinding: noteData.blinding,
+          ko: noteData.ko,
+        };
+      });
+
+      converted[key] = notes;
+    }
+
+    this.noteData = converted;
   }
 
   //* RETRIEVAL FUNCTIONS =======================================================

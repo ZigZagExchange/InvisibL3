@@ -176,8 +176,7 @@ module.exports = class Swap {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
     console.log(
@@ -187,12 +186,9 @@ module.exports = class Swap {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
-    console.log(",pseudoComms_A: ", this.takerTx.pseudo_comms);
-    console.log(",pos_A: ", this.takerTx.pos);
     console.log(",tokenSpent_A: ", this.takerTx.tokenSpent);
     console.log(",tokenSpentPrice_A: ", this.takerTx.tokenSpentPrice);
     console.log(",tokenReceived_A: ", this.takerTx.tokenReceived);
@@ -213,8 +209,7 @@ module.exports = class Swap {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
     console.log(
@@ -224,12 +219,9 @@ module.exports = class Swap {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
-    console.log(",pseudoComms_B: ", this.makerTx.pseudo_comms);
-    console.log(",pos_B: ", this.makerTx.pos);
     console.log(",tokenSpent_B: ", this.makerTx.tokenSpent);
     console.log(",tokenSpentPrice_B: ", this.makerTx.tokenSpentPrice);
     console.log(",tokenReceived_B: ", this.makerTx.tokenReceived);

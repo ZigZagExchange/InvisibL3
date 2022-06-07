@@ -17,10 +17,8 @@ template MultiSwapTransaction(numSwaps, n, k){
     signal input paths2root_B[numSwaps][n][k];
 
     //* Taker transaction (denoted by A) ==========================================
-    signal input notesIn_A[numSwaps][n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input pseudoComms_A[numSwaps][n][2];
-    signal input pos_A[numSwaps][n];
-    signal input notesOut_A[numSwaps][n][6];
+    signal input notesIn_A[numSwaps][n][5];   // note = [index, Kx, Ky, token, Comm]
+    signal input notesOut_A[numSwaps][n][5];
     signal input amountsIn_A[numSwaps][n];
     signal input amountsOut_A[numSwaps][n];
     signal input blindingsIn_A[numSwaps][n];
@@ -34,10 +32,8 @@ template MultiSwapTransaction(numSwaps, n, k){
 
 
     //* Maker transaction (denoted by B) ==========================================
-    signal input notesIn_B[numSwaps][n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input pseudoComms_B[numSwaps][n][2];
-    signal input pos_B[numSwaps][n];
-    signal input notesOut_B[numSwaps][n][6];
+    signal input notesIn_B[numSwaps][n][5];   // note = [index, Kx, Ky, token, Comm]
+    signal input notesOut_B[numSwaps][n][5];
     signal input amountsIn_B[numSwaps][n];
     signal input amountsOut_B[numSwaps][n];
     signal input blindingsIn_B[numSwaps][n];
@@ -61,19 +57,16 @@ template MultiSwapTransaction(numSwaps, n, k){
         //* Taker transaction (denoted by A) ==================
         // Loops over all input notes for the taker transaction
         for (var j=0; j<n; j++) {
-            for (var k=0; k<6; k++) {
+            for (var k=0; k<5; k++) {
                 swapTxs[i].notesIn_A[j][k] <== notesIn_A[i][j][k];
             }
-            swapTxs[i].pseudoComms_A[j][0] <== pseudoComms_A[i][j][0];
-            swapTxs[i].pseudoComms_A[j][1] <== pseudoComms_A[i][j][1];
-            swapTxs[i].pos_A[j] <== pos_A[i][j];
             swapTxs[i].amountsIn_A[j] <== amountsIn_A[i][j];
             swapTxs[i].blindingsIn_A[j] <== blindingsIn_A[i][j];
         }
 
         // Loops over all output notes for the taker transcation
         for (var j=0; j<n; j++) {
-            for (var k=0; k<6; k++) {
+            for (var k=0; k<5; k++) {
                 swapTxs[i].notesOut_A[j][k] <== notesOut_A[i][j][k];
             }
             swapTxs[i].amountsOut_A[j] <== amountsOut_A[i][j];
@@ -97,19 +90,16 @@ template MultiSwapTransaction(numSwaps, n, k){
         //* Maker transaction (denoted by B) ==================
         // Loops over all input notes for the maker transaction
         for (var j=0; j<n; j++) {
-            for (var k=0; k<6; k++) {
+            for (var k=0; k<5; k++) {
                 swapTxs[i].notesIn_B[j][k] <== notesIn_B[i][j][k];
             }
-            swapTxs[i].pseudoComms_B[j][0] <== pseudoComms_B[i][j][0];
-            swapTxs[i].pseudoComms_B[j][1] <== pseudoComms_B[i][j][1];
-            swapTxs[i].pos_B[j] <== pos_B[i][j];
             swapTxs[i].amountsIn_B[j] <== amountsIn_B[i][j];
             swapTxs[i].blindingsIn_B[j] <== blindingsIn_B[i][j];
         }
 
         // Loops over all output notes for the maker transcation
         for (var j=0; j<n; j++) {
-            for (var k=0; k<6; k++) {
+            for (var k=0; k<5; k++) {
                 swapTxs[i].notesOut_B[j][k] <== notesOut_B[i][j][k];
             }
             swapTxs[i].amountsOut_B[j] <== amountsOut_B[i][j];

@@ -22,14 +22,24 @@ class Note {
   }
 
   hashNote() {
-    return poseidon([
-      // this.index,
-      this.address[0],
-      this.address[1],
-      this.token,
-      this.commitment[0],
-      this.commitment[1],
-    ]);
+    if (this.commitment.length == 2) {
+      return poseidon([
+        // this.index,
+        this.address[0],
+        this.address[1],
+        this.token,
+        this.commitment[0],
+        this.commitment[1],
+      ]);
+    } else {
+      return poseidon([
+        // this.index,
+        this.address[0],
+        this.address[1],
+        this.token,
+        this.commitment,
+      ]);
+    }
   }
 }
 

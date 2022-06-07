@@ -4,7 +4,7 @@ include "../signatures/verify_ret_addr_sig.circom";
 include "../signatures/verify_sig.circom";
 include "./transaction_hash.circom";
 include "../helpers/verify_sums.circom";
-include "./verify_commitments.circom";
+include "../helpers/verify_commitments.circom";
 include "../existence_checks/multi_note_update.circom";
 
 include "../../circomlib/circuits/bitify.circom";
@@ -14,10 +14,8 @@ template noteTransaction(n, k) {
     // n is the number of notesIn, n is the number of notesOut
     // k is the depth of the tree
 
-    signal input notesIn[n][6];   // note = [index, Kx, Ky, token, Cx, Cy]
-    signal input pseudoComms[n][2];
-    signal input pos[n];
-    signal input notesOut[n][6];
+    signal input notesIn[n][5];   // note = [index, Kx, Ky, token, Comm]
+    signal input notesOut[n][5];
     signal input amountsIn[n];
     signal input amountsOut[n];
     signal input blindingsIn[n];
@@ -45,17 +43,15 @@ template noteTransaction(n, k) {
 
 
     //* Verify the amounts and blindings actually match the commitments
-    component verifyCommitmentsIn = VerifyCommitments(5);
+    component verifyCommitmentsIn = VerifyCommitments(3);
     for (var i=0; i<n; i++) {
-        verifyCommitmentsIn.C[i][0] <== notesIn[i][4];
-        verifyCommitmentsIn.C[i][1] <== notesIn[i][5];
+        verifyCommitmentsIn.C[i] <== notesIn[i][4];
         verifyCommitmentsIn.amounts[i] <== amountsIn[i];
         verifyCommitmentsIn.blindings[i] <== blindingsIn[i];    
     }
-    component verifyCommitmentsOut = VerifyCommitments(5);
+    component verifyCommitmentsOut = VerifyCommitments(3);
     for (var i=0; i<n; i++) {
-        verifyCommitmentsOut.C[i][0] <== notesOut[i][4];
-        verifyCommitmentsOut.C[i][1] <== notesOut[i][5];
+        verifyCommitmentsOut.C[i] <== notesOut[i][4];
         verifyCommitmentsOut.amounts[i] <== amountsOut[i];
         verifyCommitmentsOut.blindings[i] <== blindingsOut[i];    
     }
@@ -78,7 +74,6 @@ template noteTransaction(n, k) {
         txHash.notesIn[i][2] <== notesIn[i][2];
         txHash.notesIn[i][3] <== notesIn[i][3];
         txHash.notesIn[i][4] <== notesIn[i][4];
-        txHash.notesIn[i][5] <== notesIn[i][5];
     }
     for (var i=0; i<n; i++){
         txHash.notesOut[i][0] <== notesOut[i][0];
@@ -86,12 +81,10 @@ template noteTransaction(n, k) {
         txHash.notesOut[i][2] <== notesOut[i][2];
         txHash.notesOut[i][3] <== notesOut[i][3];
         txHash.notesOut[i][4] <== notesOut[i][4];
-        txHash.notesOut[i][5] <== notesOut[i][5];
     }
     txHash.tokenSpent <== tokenSpent;
     txHash.tokenSpentPrice <== tokenSpentPrice;
     txHash.retSigR <== returnAddressSig[1];
-
 
     //* Verify the signature of the transaction - (private keys for addresses and commitments to zero)
     component verifySig = VerifySig(n);
@@ -100,14 +93,10 @@ template noteTransaction(n, k) {
     for (var i=0; i<n; i++) {
         verifySig.K[i][0] <== notesIn[i][1];  // Kx
         verifySig.K[i][1] <== notesIn[i][2];  // Ky
-        verifySig.C_prev[i][0] <== notesIn[i][4];   // Cx 
-        verifySig.C_prev[i][1] <== notesIn[i][5];   // Cy
-        verifySig.C_new[i][0] <== pseudoComms[i][0];  // pseudo Cx
-        verifySig.C_new[i][1] <== pseudoComms[i][1];  // pseudo Cy
-        verifySig.pos[i] <== pos[i];
         verifySig.rs[i] <== signature[i+1]; 
     }
 
+    
 
     //* check that the input and output note sum is the same
     component verifySums = VerifySums(n, n);
@@ -131,14 +120,12 @@ template noteTransaction(n, k) {
         updateState.Ko_in[s][0] <== notesIn[s][1];
         updateState.Ko_in[s][1] <== notesIn[s][2];
         updateState.token_in[s] <== notesIn[s][3];
-        updateState.commitment_in[s][0] <== notesIn[s][4];
-        updateState.commitment_in[s][1] <== notesIn[s][5];
+        updateState.commitment_in[s] <== notesIn[s][4];
 
         updateState.Ko_out[s][0] <== notesOut[s][1];
         updateState.Ko_out[s][1] <== notesOut[s][2];
         updateState.token_out[s] <== notesOut[s][3];
-        updateState.commitment_out[s][0] <== notesOut[s][4];
-        updateState.commitment_out[s][1] <== notesOut[s][5];
+        updateState.commitment_out[s] <== notesOut[s][4];
 
         updateState.intermidiateRoots[s+1] <== intermidiateRoots[s+1];
 
@@ -151,4 +138,4 @@ template noteTransaction(n, k) {
     updatedRoot <== updateState.newComputedRoot;
 }   
 
-// component main = noteTransaction(5,4);
+// component main = noteTransaction(3,4);

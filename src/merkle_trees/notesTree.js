@@ -2,7 +2,7 @@ const Tree = require("./tree.js");
 // const Transaction = require("./transaction2.js");
 
 const ZERO_HASH =
-  1972593120533667380477339603313231606809289461898419477679735141070009144584n;
+  3188939322973067328877758594842858906904921945741806511873286077735470116993n;
 const NUM_NOTES = 3;
 
 module.exports = class NoteTree extends Tree {

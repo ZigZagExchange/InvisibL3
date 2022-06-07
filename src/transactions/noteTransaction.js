@@ -17,8 +17,6 @@ const NUM_NOTES = 3;
 module.exports = class NoteTransaction {
   constructor(
     notesIn,
-    pseudo_comms,
-    pos,
     notesOut,
     amountsIn,
     amountsOut,
@@ -37,8 +35,6 @@ module.exports = class NoteTransaction {
     // PUBLIC INPUTS:
     this.notesIn = notesIn;
     this.notesOut = notesOut;
-    this.pseudo_comms = pseudo_comms;
-    this.pos = pos;
     this.return_sig_r = null; //used to make sure the user recived the trade to the right address
     this.tokenSpent = tokenSpent;
     this.tokenSpentPrice = tokenSpentPrice;
@@ -80,52 +76,17 @@ module.exports = class NoteTransaction {
 
     this.return_sig_r = r;
 
+    if (r < 0) {
+      throw "Should set k to 240 bits so r is positive";
+    }
+
     return [c, r];
   }
 
-  // signTransaction(note_priv_keys, cmtz_priv_keys) {
-  //   // Currently only supports max 6 notes per transaction (14 inputs, one is the msg_hash)
-  //   if (note_priv_keys.length > 6) {
-  //     throw "currently max 6 notes per transaction allowed";
-  //   }
-  //   if (note_priv_keys.length !== cmtz_priv_keys.length) {
-  //     throw "key lengths missmatch";
-  //   }
-
-  //   let tx_hash = this.hashTransaction();
-  //   let alphas = [];
-  //   let c_input = [tx_hash];
-
-  //   //?  c = H(tx_hash, aG)
-  //   for (let i = 0; i < note_priv_keys.length; i++) {
-  //     let alpha = randomBigInt(240);
-  //     alphas.push(alpha);
-
-  //     let aG = ecMul(G, alpha);
-  //     c_input.push(aG[0]);
-  //     c_input.push(aG[1]);
-  //   }
-
-  //   let c = poseidon(c_input);
-
-  //   //? ri = a + k + c*z,  where c is trimmed to 16 bytes
-  //   let sig = [c];
-  //   let c_trimed = noteUtils.trimHash(c);
-  //   for (let i = 0; i < note_priv_keys.length; i++) {
-  //     let r = alphas[i] + note_priv_keys[i] + c_trimed * cmtz_priv_keys[i];
-  //     sig.push(r);
-  //   }
-
-  //   return sig;
-  // }
-
-  signTransaction_new(note_priv_keys, cmtz_priv_keys) {
+  signTransaction(note_priv_keys) {
     // Currently only supports max 6 notes per transaction (14 inputs, one is the msg_hash)
     if (note_priv_keys.length > NUM_NOTES) {
       throw "currently max NUM_NOTES notes per transaction allowed";
-    }
-    if (note_priv_keys.length !== cmtz_priv_keys.length) {
-      throw "key lengths missmatch";
     }
 
     let tx_hash = this.hashTransaction();
@@ -141,7 +102,6 @@ module.exports = class NoteTransaction {
       } else {
         let alpha = randomBigInt(240);
         alphas.push(alpha);
-
         let aG = ecMul(G, alpha);
         c_input.push(aG[0]);
         c_input.push(aG[1]);
@@ -150,14 +110,13 @@ module.exports = class NoteTransaction {
 
     let c = poseidon(c_input);
 
-    //? ri = a + k + c*z,  where c is trimmed to 16 bytes
+    //? ri = a - k + c
     let sig = [c];
-    let c_trimed = noteUtils.trimHash(c);
     for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= note_priv_keys.length) {
-        sig.push(0n);
+        sig.push(c);
       } else {
-        let r = alphas[i] + note_priv_keys[i] + c_trimed * cmtz_priv_keys[i];
+        let r = alphas[i] - note_priv_keys[i] + c;
         sig.push(r);
       }
     }
@@ -203,57 +162,10 @@ module.exports = class NoteTransaction {
     }
   }
 
-  // verifySignature(signature) {
-  //   const cmtz_pub_keys = noteUtils.cmtzPubKeys(
-  //     this.notesIn,
-  //     this.pseudo_comms,
-  //     this.pos
-  //   );
-
-  //   // Currently only supports max 6 notes per transaction
-  //   if (this.notesIn.length > NUM_NOTES) {
-  //     throw "currently max 6 notes per transaction allowed";
-  //   }
-  //   if (this.notesIn.length !== signature.length - 1) {
-  //     throw "key and signature lengths missmatch";
-  //   }
-
-  //   let c = signature[0];
-  //   let rs = signature.slice(1);
-
-  //   let tx_hash = this.hashTransaction();
-  //   let c_input = [tx_hash];
-
-  //   //?  c = H(m, rG - K - c*Z)
-
-  //   for (let i = 0; i < this.notesIn.length; i++) {
-  //     let rG = ecMul(G, rs[i]);
-  //     let cZ = ecMul(cmtz_pub_keys[i], noteUtils.trimHash(c));
-  //     let rG_minus_K = ecSub(rG, this.notesIn[i].address);
-  //     let c_input_i = ecSub(rG_minus_K, cZ);
-
-  //     c_input.push(c_input_i[0]);
-  //     c_input.push(c_input_i[1]);
-  //   }
-
-  //   let c_prime = poseidon(c_input);
-  //   if (c_prime !== c) {
-  //     throw "signature verification failed";
-  //   } else {
-  //     console.log("signature verified");
-  //   }
-  // }
-
-  verifySignature_new(signature) {
-    const cmtz_pub_keys = noteUtils.cmtzPubKeys(
-      this.notesIn,
-      this.pseudo_comms,
-      this.pos
-    );
-
+  verifySignature(signature) {
     // Currently only supports max 6 notes per transaction
     if (this.notesIn.length > NUM_NOTES) {
-      throw "currently max 6 notes per transaction allowed";
+      throw "currently max NUM_NOTES notes per transaction allowed";
     }
     // if (this.notesIn.length !== signature.length - 1) {
     //   throw "key and signature lengths missmatch";
@@ -265,7 +177,7 @@ module.exports = class NoteTransaction {
     let tx_hash = this.hashTransaction();
     let c_input = [tx_hash];
 
-    //?  c = H(m, rG - K - c*Z)
+    //?  c = H(m, rG + K - c*G)
 
     for (let i = 0; i < NUM_NOTES; i++) {
       if (i >= this.notesIn.length) {
@@ -273,14 +185,15 @@ module.exports = class NoteTransaction {
         c_input.push(1n);
       } else {
         let rG = ecMul(G, rs[i]);
-        let cZ = ecMul(cmtz_pub_keys[i], noteUtils.trimHash(c));
-        let rG_minus_K = ecSub(rG, this.notesIn[i].address);
-        let c_input_i = ecSub(rG_minus_K, cZ);
+        let cG = ecMul(G, c);
+        let rG_plus_K = ecAdd(rG, this.notesIn[i].address);
+        let c_input_i = ecSub(rG_plus_K, cG);
 
         c_input.push(c_input_i[0]);
         c_input.push(c_input_i[1]);
       }
     }
+    // console.log(c_input);
 
     let c_prime = poseidon(c_input);
     if (c_prime !== c) {
@@ -349,7 +262,7 @@ module.exports = class NoteTransaction {
 
   hashTransaction() {
     const ZERO_HASH =
-      18186447106104122485063459425619848727822300266366701424845346221645122918962n;
+      3188939322973067328877758594842858906904921945741806511873286077735470116993n;
 
     let in_notes_hash;
     if (this.notesIn.length > NUM_NOTES || this.notesOut.length > NUM_NOTES) {
@@ -410,12 +323,9 @@ module.exports = class NoteTransaction {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
-    console.log(",pseudoComms: ", this.pseudo_comms);
-    console.log(",pos: ", this.pos);
     console.log(
       ",notesOut: ",
       this.notesOut.map((note) => [
@@ -423,8 +333,7 @@ module.exports = class NoteTransaction {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
     console.log(",amountsIn: ", this.amountsIn);
@@ -444,14 +353,8 @@ module.exports = class NoteTransaction {
   logVerifySignature(sig) {
     console.log(
       "K: ",
-      this.notesIn.map((note) => [note.address])
+      this.notesIn.map((note) => note.address)
     );
-    console.log(
-      ",C_prev: ",
-      this.notesIn.map((note) => [note.commitment])
-    );
-    console.log(",C_new: ", this.pseudo_comms);
-    console.log(",pos: ", this.pos);
     console.log(",m: ", this.hashTransaction());
     console.log(",c: ", sig[0]);
     console.log(",rs: ", sig.slice(1));
@@ -465,8 +368,7 @@ module.exports = class NoteTransaction {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
     console.log(
@@ -476,8 +378,7 @@ module.exports = class NoteTransaction {
         note.address[0],
         note.address[1],
         note.token,
-        note.commitment[0],
-        note.commitment[1],
+        note.commitment,
       ])
     );
     console.log(",tokenSpent: ", this.tokenSpent);
