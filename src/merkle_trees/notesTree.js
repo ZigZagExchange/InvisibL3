@@ -48,7 +48,7 @@ module.exports = class NoteTree extends Tree {
     // get the proof and update the intermidiate nodes
     const noteProof = this.getNoteProof(this.leafNodes[this.notes.length - 1]);
 
-    this.updateNode(note.hash, this.notes.length - 1, noteProof[0]);
+    return this.updateNode(note.hash, this.notes.length - 1, noteProof[0]);
   }
 
   replaceNote(prevNote, newNote) {

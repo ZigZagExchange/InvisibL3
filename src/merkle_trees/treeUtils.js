@@ -38,10 +38,12 @@ module.exports = {
       const depth = merkle_path.length;
       const merkle_path_pos = module.exports.idxToBinaryPos(idx, depth);
       var innerNodes = new Array(depth);
+
       let left =
         BN.from(leaf).toBigInt() -
         BN.from(merkle_path_pos[0]).toBigInt() *
           (BN.from(leaf).toBigInt() - BN.from(merkle_path[0]).toBigInt());
+
       let right =
         BN.from(merkle_path[0]).toBigInt() -
         BN.from(merkle_path_pos[0]).toBigInt() *

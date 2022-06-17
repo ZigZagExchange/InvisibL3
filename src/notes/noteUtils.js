@@ -52,6 +52,7 @@ function newCommitment(amount, blinding_factor) {
   return ecAdd(Gx, Ha);
 }
 
+//TODO Move this two functions to User.js Uesr class
 function generateOneTimeAddress(pub_view_key, pub_spend_key, r) {
   // takes just the first 250 bits of the hash (both for cairo curve and for circom)
   // Ko =  H(r * Kv)G + Ks

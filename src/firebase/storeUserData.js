@@ -12,6 +12,7 @@ const { Note } = require("../notes/noteUtils.js");
 const User = require("../notes/User");
 
 const bigInt = require("big-integer");
+const { async } = require("@firebase/util");
 
 // const collectionRef = collection(db, "notes");
 
@@ -33,6 +34,77 @@ async function storeNewUser(user) {
     [nUsers]: user.id.toString(),
   });
 }
+
+async function addNoteToTree(note, idx = null) {
+  let index = idx ?? (await getNextNoteIdx());
+
+  await setDoc(doc(db, "state_tree", index.toString()), {
+    idx: index.toString(),
+    K0: note.address[0].toString(),
+    K1: note.address[1].toString(),
+    commitment: note.commitment.toString(),
+    token: note.token.toString(),
+  });
+
+  if (!idx) {
+    const numNotesRef = doc(db, "state_tree", "numNotes");
+    let numNotesDoc = await getDoc(numNotesRef);
+    let numNotes = numNotesDoc.data().num;
+    await updateDoc(numNotesRef, {
+      num: numNotes + 1,
+    });
+  }
+}
+
+async function updateNote(note, idx) {
+  if (idx < 0 || !idx) {
+    throw "invalid index";
+  }
+
+  let docRef = doc(db, "state_tree", idx.toString());
+  await updateDoc(docRef, {
+    idx: idx.toString(),
+    K0: note.address[0].toString(),
+    K1: note.address[1].toString(),
+    commitment: note.commitment.toString(),
+    token: note.token.toString(),
+  });
+}
+
+async function getNextNoteIdx() {
+  const numNotes = await getDoc(doc(db, "state_tree", "numNotes"));
+  return numNotes.data().num;
+}
+
+async function initZeroTree(zeroHashes) {
+  for (let i = 0; i < zeroHashes.length; i++) {
+    let docRef = doc(db, `state_tree/levels/${i}`, "zeroHash");
+    await setDoc(docRef, {
+      hash: zeroHashes[i].toString(),
+    });
+  }
+}
+
+async function addInnerNodes(innerPos, innerHashes) {
+  for (let i = 0; i < innerPos.length; i++) {
+    let docRef = doc(db, `innerNodes/levels/${i}`, innerPos[i].toString());
+    await setDoc(docRef, {
+      hash: innerHashes[i].toString(),
+    });
+  }
+}
+
+// async function updateInnerNodes(affectedPos, affectedInnerNodes) {
+//   if (affectedPos.length != affectedInnerNodes.length) {
+//     throw "lengths missmatch";
+//   }
+
+//   for (let i = 0; i < affectedPos.length; i++) {
+
+//     let docRef = doc(db, "state_tree", idx.toString());
+//     updateDoc(docRef, {})
+//   }
+// }
 
 async function fetchStoredUser(userId) {
   const userDoc = await getDoc(doc(db, "users", userId.toString()));
@@ -91,4 +163,9 @@ module.exports = {
   fetchStoredUser,
   fetchUserIds,
   fetchAllTokens,
+  getNextNoteIdx,
+  addNoteToTree,
+  updateNote,
+  initZeroTree,
+  addInnerNodes,
 };

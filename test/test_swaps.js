@@ -19,8 +19,14 @@ const {
   fetchStoredUser,
   fetchUserIds,
   fetchAllTokens,
+  getNextNoteIdx,
+  addNoteToTree,
+  updateNote,
+  initZeroTree,
+  addInnerNodes,
 } = require("../src/firebase/storeUserData");
 const poseidon = require("../circomlib/src/poseidon");
+const Tree = require("../src/merkle_trees/tree");
 
 //
 
@@ -286,5 +292,52 @@ async function testSwap() {
   swap.logSwap(retAddrSigA, sigA, retAddrSigB, sigB);
 }
 
-testSwap().catch(console.log);
-// storeUsers();
+// testSwap().catch(console.log);
+
+async function rand_tests() {
+  // let nNotes = await getNextNoteIdx();
+
+  let notes = [];
+  for (let i = 0; i < 10; i++) {
+    let note = new Note(
+      [11111111111111 * i, 11111111111111 * i],
+      1010101010101010 * i,
+      0
+    );
+    notes.push(note);
+  }
+
+  // let empty_arr = Array(8).fill(ZERO_HASH);
+
+  let tree = new NoteTree([], 6);
+
+  let addProofs = [];
+  for (const note of notes) {
+    addProofs.push(tree.addNote(note));
+  }
+
+  // console.log(addProofs.length);
+
+  for (let i = 0; i < addProofs.length; i++) {
+    console.time(`addNote ${i}`);
+    addInnerNodes(
+      addProofs[i].affectedPos,
+      addProofs[i].affectedInnerNodes
+    ).then(console.log("All good", i));
+    console.timeEnd(`addNote ${i}`);
+  }
+
+  // addNoteToTree(note).then(console.log("Added"));
+  // updateNote(note, 1);
+}
+
+rand_tests().catch(console.log);
+
+// let tree = new Tree([0, 0]);
+//   let zeroHashes = [];
+//   for (let i = 0; i < 32; i++) {
+//     const zHash = tree.zeros(i);
+
+//     zeroHashes.push(zHash);
+//   }
+//   initZeroTree(zeroHashes);

@@ -9,6 +9,7 @@ tx_structure.txt
 
 circomlib/test
 
+rust/hello_cargo
 
 
 snarkjs_tests/

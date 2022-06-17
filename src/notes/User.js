@@ -11,7 +11,7 @@ const {
   newCommitment,
 } = require("./noteUtils.js");
 const randomBigInt = require("random-bigint");
-var bigInt = require("big-integer");
+const bigInt = require("big-integer");
 
 const COMMITMENT_MASK = 112233445566778899n;
 const AMOUNT_MASK = 998877665544332112n;
@@ -151,10 +151,13 @@ module.exports = class User {
   }
 
   // todo figure out how remove notes should work
-  removeNotes(idxs, token) {
-    this.noteData = this.noteData[token].filter((noteData) => {
-      return !idxs.includes(noteData.note.index);
-    });
+  removeNotes(notes) {
+    let noteIdxs = notes.map((note) => note.idx);
+    this.noteData[notes[0].token] = this.noteData[notes[0].token].filter(
+      (noteData) => {
+        return !noteIdxs.includes(noteData.note.index);
+      }
+    );
   }
 
   //* HELPERS =======================================================
@@ -177,6 +180,24 @@ module.exports = class User {
     const kvi = this.privViewKey * ksi;
 
     return { ksi, kvi };
+  }
+
+  generateOneTimeAddress(pub_view_key, pub_spend_key, r) {
+    // Ko =  H(r * Kv)G + Ks
+
+    let rKv = ecMul(pub_view_key, r);
+    rKv.push(0);
+    let h = poseidon(rKv);
+
+    return ecAdd(ecMul(G, h), pub_spend_key);
+  }
+
+  oneTimeAddressPrivKey(pub_view_key, priv_spend_key, r) {
+    // ko = H(r * Kv) + ks
+    let rKv = ecMul(pub_view_key, r);
+    rKv.push(0);
+    let h = poseidon(rKv);
+    return h + priv_spend_key;
   }
 
   // Amounts are multiplied by the amplification rate (1 ETH = 10**9)
@@ -226,6 +247,7 @@ module.exports = class User {
 
   // Each output of a transaction should have this hiding
   hideValuesForRecipient(recipient_Kv, amount, r) {
+    // TODO: Add something so that the blindind is always different
     // r is the transaction priv key (randomly generated)
     // yt = H("comm_mask", H(rKv, t))  (NOTE: t is used to make the values unique and we are omitting it for now)
     // amount_t = bt XOR8 H("amount_mask", H(rKv, t))  -> (where bt is the 64 bit amount of the note)
