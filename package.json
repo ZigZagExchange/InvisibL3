@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/rollupnc/RollupNC#readme",
   "dependencies": {
+    "@enumatech/secp256k1-js": "^1.0.0",
     "blake-hash": "^1.1.0",
     "blake2b": "^2.1.4",
     "chai": "^4.3.6",
