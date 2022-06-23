@@ -1,4 +1,5 @@
 const poseidon = require("../../circomlib/src/poseidon");
+const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 const G = require("../../circomlib/src/babyjub.js").Generator;
 const H = require("../../circomlib/src/babyjub.js").Base8;
 const F = require("../../circomlib/src/babyjub.js").F;
@@ -22,29 +23,46 @@ class Note {
   }
 
   hashNote() {
-    if (this.commitment.length == 2) {
-      return poseidon([
-        // this.index,
-        this.address[0],
-        this.address[1],
-        this.token,
-        this.commitment[0],
-        this.commitment[1],
-      ]);
-    } else {
-      return poseidon([
-        // this.index,
-        this.address[0],
-        this.address[1],
+    let addrHighLowY = splitUint256(this.address[1]);
+    let addrHighLowX = splitUint256(this.address[0]);
+
+    return BigInt(
+      computeHashOnElements([
+        pedersen([addrHighLowX.high, addrHighLowX.low]),
+        pedersen([addrHighLowY.high, addrHighLowY.low]),
         this.token,
         this.commitment,
-      ]);
-    }
+      ]),
+      16
+    );
   }
 }
 
 //* =============================================================================
 //* HELPER FUNCTIONS
+
+function split(num) {
+  const BASE = bigInt(2).pow(86).value;
+
+  num = BigInt(num);
+  let a = [];
+  for (let i = 0; i < 3; i++) {
+    let res = bigInt(num).divmod(BASE);
+    num = res.quotient;
+    a.push(res.remainder.value);
+  }
+  if (num != 0) {
+    throw new Error("num is not 0");
+  }
+
+  return a;
+}
+
+function splitUint256(num) {
+  let divRem = bigInt(num).divmod(bigInt(2).pow(128));
+
+  return { high: divRem.quotient.value, low: divRem.remainder.value };
+}
 
 function newCommitment(amount, blinding_factor) {
   let Gx = ecMul(G, blinding_factor);
@@ -180,4 +198,6 @@ module.exports = {
   cmtzPrivKeys,
   cmtzPubKeys,
   Note,
+  split,
+  splitUint256,
 };

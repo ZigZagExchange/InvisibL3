@@ -3,7 +3,10 @@ node_modules
 test/test_jubjub.js
 test/testFirebase.js
 
+
+
 firebaseConfig.js
+notes.txt
 design.txt
 tx_structure.txt
 

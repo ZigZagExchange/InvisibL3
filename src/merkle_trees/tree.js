@@ -1,3 +1,4 @@
+const poseidon = require("../../circomlib/src/poseidon.js");
 const treeUtils = require("./treeUtils.js");
 
 module.exports = class Tree {
@@ -62,6 +63,31 @@ module.exports = class Tree {
       proof: proof,
       proofPos: proofBinaryPos,
     };
+  }
+
+  getMultiUpdateProof(leafHash, proof, proofBinaryPos) {
+    var preimage = new Map();
+    var hashes = new Array(proof.length - 1);
+
+    let hash_inp = !proofBinaryPos[0]
+      ? [leafHash, proof[0]]
+      : [proof[0], leafHash];
+
+    hashes[0] = poseidon(hash_inp);
+
+    preimage.set(hashes[0], hash_inp);
+
+    for (let i = 1; i < proof.length; i++) {
+      hash_inp = !proofBinaryPos[i]
+        ? [hashes[i - 1], proof[i]]
+        : [proof[i], hashes[i - 1]];
+
+      hashes[i] = poseidon(hash_inp);
+
+      preimage.set(hashes[i], hash_inp);
+    }
+
+    return preimage;
   }
 
   verifyProof(leafHash, idx, proof) {

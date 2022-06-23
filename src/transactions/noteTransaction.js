@@ -53,7 +53,97 @@ module.exports = class NoteTransaction {
     this.tx_r = tx_r;
   }
 
-  // PRIVATE FUNCTIONS: ========================================================
+  verifySig_new(signature, addresses, tx_hash) {
+    let c = signature[0];
+    let rs = signature.slice(1);
+
+    let c_input = [tx_hash];
+
+    let c_split = splitUint256(c);
+    let c_trimmed = c_split.high + c_split.low;
+    let cG = Secp256k1.mulG(Secp256k1.uint256(c_trimmed));
+    cG = Secp256k1.AtoJ(cG[0], cG[1]);
+
+    //?  c = H(m, rG - K + c*G)     (where c is trimmed)
+    for (let i = 0; i < rs.length; i++) {
+      let riG = Secp256k1.mulG(Secp256k1.uint256(rs[i]));
+      riG = Secp256k1.AtoJ(riG[0], riG[1]);
+      let riG_plus_cG = Secp256k1.ecadd(riG, cG);
+      let Ki_neg = Secp256k1.negPoint(addresses[i]);
+      Ki_neg = Secp256k1.AtoJ(Ki_neg[0], Ki_neg[1]);
+      let c_input_i = Secp256k1.ecadd(riG_plus_cG, Ki_neg);
+      c_input_i = Secp256k1.JtoA(c_input_i);
+
+      let highLow = splitUint256(c_input_i[0].toString());
+      c_input.push(pedersen([highLow.high, highLow.low]));
+    }
+
+    let c_prime = BigInt(computeHashOnElements(c_input), 16);
+
+    if (c_prime !== c) {
+      throw "signature verification failed";
+    } else {
+      console.log("signature verified");
+    }
+  }
+
+  signReturnAddressSig(priv_key, hash) {
+    const alpha = randomBigInt(250);
+    const aG = Secp256k1.mulG(Secp256k1.uint256(alpha));
+
+    let aGx = splitUint256(aG[0].toString());
+    const c_input = pedersen([aGx.high, aGx.low]);
+
+    const c = BigInt(pedersen([hash, c_input]), 16);
+
+    let c_split = splitUint256(c);
+    let c_trimmed = c_split.high + c_split.low;
+
+    let sig = [c];
+
+    const r = bigInt(alpha).add(priv_key).subtract(c_trimmed).value;
+
+    if (r >= P || r < 0) {
+      return signTx(priv_key, hash);
+    }
+
+    sig.push(r);
+
+    return sig;
+  }
+
+  verifyRetAddrSig(signature, address, hash) {
+    let c = signature[0];
+    let r = signature[1];
+
+    let c_split = splitUint256(c);
+    let c_trimmed = c_split.high + c_split.low;
+
+    let cG = Secp256k1.mulG(Secp256k1.uint256(c_trimmed));
+    cG = Secp256k1.AtoJ(cG[0], cG[1]);
+
+    //?  c = H(m, rG - K + c*G)     (where c is trimmed)
+    let rG = Secp256k1.mulG(Secp256k1.uint256(r));
+    rG = Secp256k1.AtoJ(rG[0], rG[1]);
+    let rG_plus_cG = Secp256k1.ecadd(rG, cG);
+    let K_neg = Secp256k1.negPoint(address);
+    K_neg = Secp256k1.AtoJ(K_neg[0], K_neg[1]);
+    let c_input = Secp256k1.ecadd(rG_plus_cG, K_neg);
+    c_input = Secp256k1.JtoA(c_input);
+
+    let highLow = splitUint256(c_input[0].toString());
+    let c_hash = BigInt(pedersen([highLow.high, highLow.low]), 16);
+
+    let c_prime = BigInt(pedersen([hash, c_hash]), 16);
+
+    if (c_prime !== c) {
+      throw "signature verification failed";
+    } else {
+      console.log("signature verified");
+    }
+  }
+
+  //! DEPRECATED ===============================================================
 
   signPrivateReturnAddress(privSpendKey) {
     // using this as a Fiat-Shamir heuristic
@@ -124,8 +214,6 @@ module.exports = class NoteTransaction {
     return sig;
   }
 
-  // PUBLIC FUNCTIONS: ========================================================
-
   verifyPrivReturnAddressSig(
     sig,
     Ko = null,
@@ -162,7 +250,7 @@ module.exports = class NoteTransaction {
     }
   }
 
-  verifySignature(signature) {
+  verifySignature_deprecated(signature) {
     // Currently only supports max 6 notes per transaction
     if (this.notesIn.length > NUM_NOTES) {
       throw "currently max NUM_NOTES notes per transaction allowed";
