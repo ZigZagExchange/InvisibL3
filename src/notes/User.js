@@ -1,17 +1,17 @@
-const poseidon = require("../../circomlib/src/poseidon.js");
-const G = require("../../circomlib/src/babyjub.js").Generator;
-const ecMul = require("../../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
+const Secp256k1 = require("@enumatech/secp256k1-js");
+const bigInt = require("big-integer");
+const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 
 const {
   trimHash,
   Note,
   generateOneTimeAddress,
   newCommitment,
+  split,
+  splitUint256,
 } = require("./noteUtils.js");
 const randomBigInt = require("random-bigint");
-const bigInt = require("big-integer");
+const poseidon = require("../../circomlib/src/poseidon.js");
 
 const COMMITMENT_MASK = 112233445566778899n;
 const AMOUNT_MASK = 998877665544332112n;
@@ -23,8 +23,10 @@ module.exports = class User {
     this.id = id;
     this.privViewKey = _privViewKey; //kv
     this.privSpendKey = _privSpendKey; //ks
-    this.pubViewKey = ecMul(G, _privViewKey);
-    this.pubSpendKey = ecMul(G, _privSpendKey);
+
+    this.pubViewKey = Secp256k1.mulG(Secp256k1.uint256(_privViewKey));
+    this.pubSpendKey = Secp256k1.mulG(Secp256k1.uint256(_privSpendKey));
+
     this.noteData = {};
   }
 
@@ -56,7 +58,7 @@ module.exports = class User {
 
       let newNote = new Note(
         nData.note.address,
-        poseidon([nData.amount, nData.blinding]),
+        pedersen([nData.amount, nData.blinding]),
         token,
         nData.note.index
       );
@@ -77,7 +79,7 @@ module.exports = class User {
     let Ko1 = generateOneTimeAddress(Kv, Ks, r);
 
     // let comm1 = newCommitment(amount, hiddenValues1.yt);
-    let comm1 = poseidon([amount, hiddenValues1.yt]);
+    let comm1 = pedersen([amount, hiddenValues1.yt]);
     let note1 = new Note(Ko1, comm1, token);
 
     notesOut.push(note1);
@@ -90,7 +92,7 @@ module.exports = class User {
     let Ko2 = generateOneTimeAddress(dummyKey, Ks, r);
 
     // let comm2 = newCommitment(feeAmount, hiddenValues2.yt);
-    let comm2 = poseidon([feeAmount, hiddenValues2.yt]);
+    let comm2 = pedersen([feeAmount, hiddenValues2.yt]);
     let note2 = new Note(Ko2, comm2, token);
 
     notesOut.push(note2);
@@ -107,7 +109,7 @@ module.exports = class User {
     let Ko3 = generateOneTimeAddress(this.pubViewKey, this.pubSpendKey, r);
 
     // let comm3 = newCommitment(inputSum - amount - feeAmount, hiddenValues3.yt);
-    let comm3 = poseidon([inputSum - amount - feeAmount, hiddenValues3.yt]);
+    let comm3 = pedersen([inputSum - amount - feeAmount, hiddenValues3.yt]);
     let note3 = new Note(Ko3, comm3, token);
 
     notesOut.push(note3);
@@ -138,6 +140,7 @@ module.exports = class User {
     if (!notes.length) {
       return;
     }
+
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
       const amount = amounts[i];
@@ -151,14 +154,7 @@ module.exports = class User {
   }
 
   // todo figure out how remove notes should work
-  removeNotes(notes) {
-    let noteIdxs = notes.map((note) => note.idx);
-    this.noteData[notes[0].token] = this.noteData[notes[0].token].filter(
-      (noteData) => {
-        return !noteIdxs.includes(noteData.note.index);
-      }
-    );
-  }
+  removeNotes(notes) {}
 
   //* HELPERS =======================================================
 
@@ -166,17 +162,18 @@ module.exports = class User {
     // Ksi = Ks + H(kv, i)*G   == (ks + H(kv, i))* G
     // Kvi = kv*Ksi         == kv*(ks + H(kv, i))* G
 
-    let ksi = this.privSpendKey + poseidon([this.privViewKey, i]);
-    const Ksi = ecMul(G, ksi);
-    const Kvi = ecMul(Ksi, this.privViewKey);
-    return { Kvi, Ksi };
+    let ksi = this.privSpendKey + pedersen([this.privViewKey, i]);
+    let Ksi = Secp256k1.mulG(Secp256k1.uint256(ksi));
+    Ksi = Secp256k1.AtoJ(Ksi[0], Ksi[1]);
+    const Kvi = Secp256k1.ecmul(Ksi, Secp256k1.uint256(this.privViewKey));
+    return { Kvi: Secp256k1.JtoA(Kvi), Ksi: Secp256k1.JtoA(Ksi) };
   }
 
   subaddressPrivKeys(i) {
     // ksi = ks + H(kv, i)
     // kvi = kv*ksi
 
-    const ksi = this.privSpendKey + poseidon([this.privViewKey, i]);
+    const ksi = this.privSpendKey + pedersen([this.privViewKey, i]);
     const kvi = this.privViewKey * ksi;
 
     return { ksi, kvi };
@@ -187,7 +184,7 @@ module.exports = class User {
 
     let rKv = ecMul(pub_view_key, r);
     rKv.push(0);
-    let h = poseidon(rKv);
+    let h = pedersen(rKv);
 
     return ecAdd(ecMul(G, h), pub_spend_key);
   }
@@ -196,7 +193,7 @@ module.exports = class User {
     // ko = H(r * Kv) + ks
     let rKv = ecMul(pub_view_key, r);
     rKv.push(0);
-    let h = poseidon(rKv);
+    let h = pedersen(rKv);
     return h + priv_spend_key;
   }
 
@@ -227,7 +224,7 @@ module.exports = class User {
         return {
           note: new Note(
             noteData.note.address,
-            poseidon([noteData.amount, noteData.blinding]),
+            pedersen([noteData.amount, noteData.blinding]),
             noteData.note.token,
             noteData.note.index
           ),
@@ -252,15 +249,14 @@ module.exports = class User {
     // yt = H("comm_mask", H(rKv, t))  (NOTE: t is used to make the values unique and we are omitting it for now)
     // amount_t = bt XOR8 H("amount_mask", H(rKv, t))  -> (where bt is the 64 bit amount of the note)
 
-    let rKv = ecMul(recipient_Kv, r);
+    recipient_Kv = Secp256k1.AtoJ(recipient_Kv[0], recipient_Kv[1]);
+    let rKv = Secp256k1.ecmul(recipient_Kv, Secp256k1.uint256(r));
+    rKv = Secp256k1.JtoA(rKv);
 
-    let hash8 = trimHash(
-      poseidon([AMOUNT_MASK, poseidon([rKv[0], rKv[1]])]),
-      64
-    );
+    let hash8 = trimHash(poseidon([AMOUNT_MASK, poseidon(rKv)]), 64);
 
-    let yt = poseidon([COMMITMENT_MASK, poseidon([rKv[0], rKv[1]])]); // this is the blinding used in the commitment
-    yt = trimHash(yt, 120);
+    let yt = poseidon([COMMITMENT_MASK, poseidon(rKv)]); // this is the blinding used in the commitment
+    yt = trimHash(yt, 250);
     let hiddentAmount = bigInt(amount).xor(hash8).value;
 
     return { yt, hiddentAmount };
@@ -273,15 +269,15 @@ module.exports = class User {
 
     const privKeys = this.subaddressPrivKeys(ith);
 
-    let rKv = ecMul(rG, privKeys.kvi);
+    rG = Secp256k1.AtoJ(rG[0], rG[1]);
 
-    let yt = poseidon([COMMITMENT_MASK, poseidon([rKv[0], rKv[1]])]); // this is the blinding used in the commitment
-    yt = trimHash(yt, 120);
+    let rKv = Secp256k1.ecmul(rG, Secp256k1.uint256(privKeys.kvi));
+    rKv = Secp256k1.JtoA(rKv);
 
-    let hash8 = trimHash(
-      poseidon([AMOUNT_MASK, poseidon([rKv[0], rKv[1]])]),
-      64
-    );
+    let yt = poseidon([COMMITMENT_MASK, poseidon(rKv)]); // this is the blinding used in the commitment
+    yt = trimHash(yt, 250);
+
+    let hash8 = trimHash(poseidon([AMOUNT_MASK, poseidon(rKv)]), 64);
 
     let amount = bigInt(hiddenAmount).xor(hash8).value;
 
@@ -295,14 +291,33 @@ module.exports = class User {
     // Ks' = Ko - H(rKvi,0)G
     // If Ks' === Ksi (calculated Ks' equals his subbadress Ksi) than its addressed to him
 
+    if (Ko.length == 2) {
+      Ko = Secp256k1.AtoJ(Ko[0], Ko[1]);
+    }
+    if (rKsi.length == 2) {
+      rKsi = Secp256k1.AtoJ(rKsi[0], rKsi[1]);
+    }
+
     const subaddress = this.generateSubaddress(ith);
 
-    const rKvi = ecMul(rKsi, this.privViewKey);
-    rKvi.push(0);
-    let Ks_prime = ecSub(Ko, ecMul(G, poseidon(rKvi)));
+    let rKvi = Secp256k1.ecmul(rKsi, Secp256k1.uint256(this.privViewKey));
+    rKvi = Secp256k1.JtoA(rKvi);
 
+    let h = trimHash(poseidon(rKvi), 250);
+    let rGKvi = Secp256k1.mulG(Secp256k1.uint256(h));
+    let rGKvi_neg = Secp256k1.negPoint(rGKvi);
+    rGKvi_neg = Secp256k1.AtoJ(rGKvi_neg[0], rGKvi_neg[1]);
+
+    let Ks_prime = Secp256k1.ecadd(Ko, rGKvi_neg);
+    Ks_prime = Secp256k1.JtoA(Ks_prime);
+
+    // console.log(bigInt(Ks_prime[0].toString()).value);
+    // console.log(bigInt(subaddress.Ksi[0].toString()));
     return !!(
-      Ks_prime[0] === subaddress.Ksi[0] && Ks_prime[1] === subaddress.Ksi[1]
+      bigInt(Ks_prime[0].toString()).value ===
+        bigInt(subaddress.Ksi[0].toString()).value &&
+      bigInt(Ks_prime[1].toString()).value ===
+        bigInt(subaddress.Ksi[1].toString()).value
     );
   }
 
@@ -310,8 +325,8 @@ module.exports = class User {
 
   static generateRandomUserData() {
     const id = randomBigInt(200);
-    const privViewKey = randomBigInt(240);
-    const privSpendKey = randomBigInt(240);
+    const privViewKey = randomBigInt(250);
+    const privSpendKey = randomBigInt(250);
     return { id, privViewKey, privSpendKey };
   }
 };

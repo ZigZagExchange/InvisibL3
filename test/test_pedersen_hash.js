@@ -7,7 +7,10 @@ const { hashTransaction } = require("./test_secp256k1");
 // * INPUTS ============================================================================
 const indexes = [0, 2, 3];
 const token = 1;
-const tokenPrice = 2500;
+const tokenPrice = 2500n;
+const tokenReceived = 0;
+const tokenReceivedPrice = 312n;
+
 const dummy_ret_sig_r =
   128964326580914270312568230948289462309515862350923523532859325n;
 
@@ -53,12 +56,34 @@ for (let i = 1n; i <= 3n; i++) {
   addresses_out.push(addr);
 }
 
-function log_inputs() {
-  console.log('"indexes": ', indexes);
-  console.log(',"token": ', token);
-  console.log(',"tokenPrice": ', tokenPrice);
-  console.log(',"ret_sig_r": ', dummy_ret_sig_r);
+//
 
+// * LOG INPUTS ============================================================================
+
+function log_inputs(
+  prev_root,
+  new_root,
+  signature,
+  ret_sig,
+  ret_addr,
+  preimage
+) {
+  console.log(',"prev_root": ', prev_root);
+  console.log(',"new_root": ', new_root);
+
+  console.log(',"token_spent": ', token);
+  console.log(',"token_spent_price": ', tokenPrice);
+  console.log(',"token_received": ', tokenReceived);
+  console.log(',"token_received_price": ', tokenReceivedPrice);
+
+  console.log(',"return_address": ', ret_addr);
+
+  console.log(',"signature": ', signature);
+  console.log(',"return_address_sig": ', ret_sig);
+
+  console.log(',"preimage": ', preimage);
+
+  console.log('"indexes": ', indexes);
   console.log(
     '========================\n"data_in": {},\n========================'
   );
@@ -81,7 +106,9 @@ function log_inputs() {
 
   console.log("\n================================================");
 }
-log_inputs();
+// log_inputs();
+
+//
 
 //* HASH NOTES ===========================================================================
 
@@ -104,17 +131,12 @@ function hash_notes() {
   }
 }
 
-hash_notes();
+// hash_notes();
 
-console.log("leaf_hashes_in: ", leaf_hashes_in);
-console.log("leaf_hashes_out: ", leaf_hashes_out);
-
-// console.log("leaf nodes out: ", leaf_hashes_out);
-
-//* BUILD THE TREE =========================================================================
-// replace the input notes in the tree with the output notes
+//* TESTS =========================================================================
 
 function tree_update_tests() {
+  // replace the input notes in the tree with the output notes
   // notes in are at indexes 0, 2, 3
   let arr = new Array(8).fill(0);
   arr[indexes[0]] = leaf_hashes_in[0];
@@ -123,7 +145,7 @@ function tree_update_tests() {
 
   let tree = new Tree(arr);
 
-  console.log(',"prev_root": ', tree.root);
+  let prev_root = tree.root;
 
   let proofs_in = [];
   let preimages_in = [];
@@ -171,9 +193,7 @@ function tree_update_tests() {
     });
   }
 
-  console.log(',"preimage": ', preimage);
-
-  console.log(',"new_root": ', tree.root);
+  return { preimage, newRoot: tree.root, prev_root };
 }
 
 function tx_hash_test() {
@@ -186,6 +206,13 @@ function tx_hash_test() {
   );
 
   console.log("hash: ", hash);
+}
+
+function test_transaction() {
+  hash_notes();
+  let { preimage, newRoot, prevRoot } = tree_update_tests();
+
+  log_inputs(prevRoot, newRoot);
 }
 
 tx_hash_test();

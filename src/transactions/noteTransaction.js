@@ -5,13 +5,22 @@ const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
 const G = require("../../circomlib/src/babyjub.js").Generator;
 const H = require("../../circomlib/src/babyjub.js").Base8;
 
+const Secp256k1 = require("@enumatech/secp256k1-js");
+const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 const randomBigInt = require("random-bigint");
+const bigInt = require("big-integer");
 
-const Note = require("../notes/noteUtils.js").Note;
-const noteUtils = require("../notes/noteUtils.js");
+const {
+  Note,
+  generateOneTimeAddress,
+  oneTimeAddressPrivKey,
+  split,
+  splitUint256,
+  trimHash,
+} = require("../notes/noteUtils.js");
 
-//TODO Temporary randomness for one time address
-const RAND_SEED = 123456789;
+const P = 2n ** 251n + 2n ** 192n + 1n;
+
 const NUM_NOTES = 3;
 
 module.exports = class NoteTransaction {
@@ -39,6 +48,8 @@ module.exports = class NoteTransaction {
     this.tokenSpent = tokenSpent;
     this.tokenSpentPrice = tokenSpentPrice;
 
+    this.tx_hash = null;
+
     //PRIVATE INPUTS:  (still shared with exchange or market maker)
 
     this.tokenReceived = tokenReceived;
@@ -47,15 +58,57 @@ module.exports = class NoteTransaction {
     this.amountsOut = amountsOut;
     this.blindingsIn = blindingsIn;
     this.blindingsOut = blindingsOut;
-    this.return_sig_c = null; //used to make sure the user recived the trade to the right address
     this.Ksi = Ksi; // the ith subbaddress spend key
     this.Kvi = Kvi; // the ith subbaddress view key
     this.tx_r = tx_r;
   }
 
-  verifySig_new(signature, addresses, tx_hash) {
+  //* MODIFIED ===============================================================
+
+  signTx(priv_keys) {
+    let tx_hash = this.hashTransaction();
+
+    let alphas = [];
+    let c_input = [tx_hash];
+    //?  c = H(tx_hash, -aG)
+    for (let i = 0; i < priv_keys.length; i++) {
+      // Could reveal something about the private key if alpha is to small*
+      const alpha = randomBigInt(250);
+      const aG = Secp256k1.mulG(Secp256k1.uint256(alpha));
+
+      // console.log("c_input_i", aG.toString());
+      let aGx = splitUint256(aG[0].toString());
+      const c_input_i = pedersen([aGx.high, aGx.low]);
+
+      c_input.push(c_input_i);
+      alphas.push(alpha);
+    }
+
+    let c = BigInt(computeHashOnElements(c_input));
+    let rs = [c];
+
+    let c_split = splitUint256(c);
+    let c_trimmed = c_split.high + c_split.low;
+
+    //? ri = a + k - c  (where c is trimmed)
+    for (let i = 0; i < alphas.length; i++) {
+      let ri = bigInt(alphas[i]).add(priv_keys[i]).subtract(c_trimmed).value;
+
+      if (ri >= P || ri < 0) {
+        console.log("WRONG ri", ri);
+        return this.signTx(priv_keys);
+      }
+
+      rs.push(ri);
+    }
+
+    return rs;
+  }
+
+  verifySig(signature) {
     let c = signature[0];
     let rs = signature.slice(1);
+    let tx_hash = this.hashTransaction();
 
     let c_input = [tx_hash];
 
@@ -69,7 +122,7 @@ module.exports = class NoteTransaction {
       let riG = Secp256k1.mulG(Secp256k1.uint256(rs[i]));
       riG = Secp256k1.AtoJ(riG[0], riG[1]);
       let riG_plus_cG = Secp256k1.ecadd(riG, cG);
-      let Ki_neg = Secp256k1.negPoint(addresses[i]);
+      let Ki_neg = Secp256k1.negPoint(Secp256k1.JtoA(this.notesIn[i].address));
       Ki_neg = Secp256k1.AtoJ(Ki_neg[0], Ki_neg[1]);
       let c_input_i = Secp256k1.ecadd(riG_plus_cG, Ki_neg);
       c_input_i = Secp256k1.JtoA(c_input_i);
@@ -86,15 +139,16 @@ module.exports = class NoteTransaction {
       console.log("signature verified");
     }
   }
+  signReturnAddressSig(priv_key) {
+    let ret_tx_hash = this.hashPrivInputs();
 
-  signReturnAddressSig(priv_key, hash) {
     const alpha = randomBigInt(250);
     const aG = Secp256k1.mulG(Secp256k1.uint256(alpha));
 
     let aGx = splitUint256(aG[0].toString());
     const c_input = pedersen([aGx.high, aGx.low]);
 
-    const c = BigInt(pedersen([hash, c_input]), 16);
+    const c = BigInt(pedersen([ret_tx_hash, c_input]), 16);
 
     let c_split = splitUint256(c);
     let c_trimmed = c_split.high + c_split.low;
@@ -104,17 +158,28 @@ module.exports = class NoteTransaction {
     const r = bigInt(alpha).add(priv_key).subtract(c_trimmed).value;
 
     if (r >= P || r < 0) {
-      return signTx(priv_key, hash);
+      // console.log("r is wrong", r.toString(2).length);
+      return this.signReturnAddressSig(priv_key);
     }
 
+    this.return_sig_r = r;
     sig.push(r);
 
     return sig;
   }
 
-  verifyRetAddrSig(signature, address, hash) {
+  verifyRetAddrSig(signature, Ko = null, tokenR = null, tokenRPrice = null) {
     let c = signature[0];
     let r = signature[1];
+    let ret_tx_hash = this.hashPrivInputs(tokenR, tokenRPrice);
+
+    if (!Ko) {
+      Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
+      Ko = Secp256k1.JtoA(Ko);
+      console.log("Unsafe: Should provide your own Ko");
+    } else if (Ko.length === 3) {
+      Ko = Secp256k1.JtoA(Ko);
+    }
 
     let c_split = splitUint256(c);
     let c_trimmed = c_split.high + c_split.low;
@@ -126,7 +191,7 @@ module.exports = class NoteTransaction {
     let rG = Secp256k1.mulG(Secp256k1.uint256(r));
     rG = Secp256k1.AtoJ(rG[0], rG[1]);
     let rG_plus_cG = Secp256k1.ecadd(rG, cG);
-    let K_neg = Secp256k1.negPoint(address);
+    let K_neg = Secp256k1.negPoint(Ko);
     K_neg = Secp256k1.AtoJ(K_neg[0], K_neg[1]);
     let c_input = Secp256k1.ecadd(rG_plus_cG, K_neg);
     c_input = Secp256k1.JtoA(c_input);
@@ -134,33 +199,109 @@ module.exports = class NoteTransaction {
     let highLow = splitUint256(c_input[0].toString());
     let c_hash = BigInt(pedersen([highLow.high, highLow.low]), 16);
 
-    let c_prime = BigInt(pedersen([hash, c_hash]), 16);
+    let c_prime = BigInt(pedersen([ret_tx_hash, c_hash]), 16);
 
     if (c_prime !== c) {
-      throw "signature verification failed";
+      throw "return address signature verification failed";
     } else {
-      console.log("signature verified");
+      console.log("return address signature verified");
     }
   }
 
+  // Helpers
+  hashTransaction() {
+    let return_sig_r = this.return_sig_r;
+
+    // ===================================================
+    // hash input notes
+    let hashes_in = [];
+    for (let i = 0; i < this.notesIn.length; i++) {
+      const hash = this.notesIn[i].hash;
+
+      if (this.notesIn[i].token !== this.tokenSpent) {
+        throw "token missmatch";
+      }
+      hashes_in.push(hash);
+    }
+    // ===================================================
+    // hash output notes
+    let hashes_out = [];
+    for (let i = 0; i < this.notesOut.length; i++) {
+      const hash = this.notesOut[i].hash;
+
+      if (this.notesOut[i].token !== this.tokenSpent) {
+        throw "token missmatch";
+      }
+
+      hashes_out.push(hash);
+    }
+    // ===================================================
+
+    let hash_input = hashes_in
+      .concat(hashes_out)
+      .concat([this.tokenSpent, this.tokenSpentPrice, return_sig_r]);
+
+    return BigInt(computeHashOnElements(hash_input), 16);
+  }
+
+  hashPrivInputs(tokenReceived, tokenReceivedPrice) {
+    //TODO: Add amount and blinding to the signature
+
+    tokenReceived = tokenReceived ?? this.tokenReceived;
+    tokenReceivedPrice = tokenReceivedPrice ?? this.tokenReceivedPrice;
+
+    return pedersen([tokenReceived, tokenReceivedPrice]);
+  }
+
+  verifySums() {
+    let inputSum = 0n;
+    let outputSum = 0n;
+
+    for (let i = 0; i < this.notesIn.length; i++) {
+      const note = this.notesIn[i];
+
+      let comm = pedersen([this.amountsIn[i], this.blindingsIn[i]]);
+
+      if (note.commitment !== comm) {
+        throw "amount or blinding missmatch in input notes";
+      }
+
+      inputSum += this.amountsIn[i];
+    }
+
+    for (let i = 0; i < this.notesOut.length; i++) {
+      const note = this.notesOut[i];
+
+      let comm = pedersen([this.amountsOut[i], this.blindingsOut[i]]);
+
+      if (note.commitment !== comm) {
+        throw "amount or blinding missmatch in output notes";
+      }
+
+      outputSum += this.amountsOut[i];
+    }
+
+    if (inputSum != outputSum) {
+      throw "outputs sum is not equal to the inputs sum";
+    }
+  }
+
+  //* MODIFIED ===============================================================
+
   //! DEPRECATED ===============================================================
 
-  signPrivateReturnAddress(privSpendKey) {
+  signPrivateReturnAddress_deprecated(privSpendKey) {
     // using this as a Fiat-Shamir heuristic
     let hash = this.hashPrivateInputs();
 
-    const ko = noteUtils.oneTimeAddressPrivKey(
-      this.Kvi,
-      privSpendKey,
-      this.tx_r
-    );
+    const ko = oneTimeAddressPrivKey(this.Kvi, privSpendKey, this.tx_r);
 
     let alpha = randomBigInt(240);
     let aG = ecMul(G, alpha);
 
     let c = poseidon([hash, aG[0], aG[1]]);
 
-    let c_trimed = noteUtils.trimHash(c, 240);
+    let c_trimed = trimHash(c, 240);
 
     const r = alpha + ko - c_trimed;
 
@@ -173,7 +314,7 @@ module.exports = class NoteTransaction {
     return [c, r];
   }
 
-  signTransaction(note_priv_keys) {
+  signTransaction_deprecated(note_priv_keys) {
     // Currently only supports max 6 notes per transaction (14 inputs, one is the msg_hash)
     if (note_priv_keys.length > NUM_NOTES) {
       throw "currently max NUM_NOTES notes per transaction allowed";
@@ -214,7 +355,7 @@ module.exports = class NoteTransaction {
     return sig;
   }
 
-  verifyPrivReturnAddressSig(
+  verifyPrivReturnAddressSig_deprecated(
     sig,
     Ko = null,
     tokenR = null,
@@ -232,11 +373,11 @@ module.exports = class NoteTransaction {
     }
 
     if (!Ko) {
-      Ko = noteUtils.generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
+      Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
       console.log("Unsafe: Should provide your own Ko");
     }
 
-    let c_trimed = noteUtils.trimHash(c, 240);
+    let c_trimed = trimHash(c, 240);
 
     // c = H(rG - K + cG)
     const c_input = ecSub(ecAdd(ecMul(G, r), ecMul(G, c_trimed)), Ko);
@@ -292,150 +433,59 @@ module.exports = class NoteTransaction {
     }
   }
 
-  verifySums() {
-    let inputSum = 0n;
-    let outputSum = 0n;
+  //! DEPRECATED ===============================================================
+
+  // LOGGING ==================================================================
+  logTransaction(retAddrSig, sig) {
+    let indexes = [];
+    let addresses_in = [];
 
     for (let i = 0; i < this.notesIn.length; i++) {
       const note = this.notesIn[i];
 
-      let C = ecAdd(ecMul(G, this.blindingsIn[i]), ecMul(H, this.amountsIn[i]));
-
-      if (note.commitment[0] !== C[0] || note.commitment[1] !== C[1]) {
-        throw "amount or blinding missmatch in input notes";
-      }
-
-      inputSum += this.amountsIn[i];
+      indexes.push(note.index);
+      addresses_in.push(note.address);
     }
 
+    console.log('"indexes": ', indexes);
+    console.log(',"token_spent": ', this.tokenSpent);
+    console.log(',"token_spent_price": ', this.tokenSpentPrice);
+    console.log(',"token_received": ', this.tokenReceived);
+    console.log(',"token_received_price": ', this.tokenReceivedPrice);
+
+    // ===============================================
+    console.log(',"amounts_in": ', this.amountsIn);
+    console.log(',"blindings_in": ', this.blindingsIn);
+    console.log(
+      ',"addresses_in": ',
+      addresses_in.map((addr) => {
+        addr = Secp256k1.JtoA(addr);
+        return [split(addr[0]), split(addr[1])];
+      })
+    );
+
+    //================================================
+
+    let addresses_out = [];
     for (let i = 0; i < this.notesOut.length; i++) {
       const note = this.notesOut[i];
-
-      let C = ecAdd(
-        ecMul(G, this.blindingsOut[i]),
-        ecMul(H, this.amountsOut[i])
-      );
-
-      if (note.commitment[0] !== C[0] || note.commitment[1] !== C[1]) {
-        throw "amount or blinding missmatch in output notes";
-      }
-
-      outputSum += this.amountsOut[i];
+      addresses_out.push(note.address);
     }
 
-    if (inputSum != outputSum) {
-      throw "outputs sum is not equal to the inputs sum";
-    }
-  }
-
-  // might deprecate this function
-  verifySumsCmtz() {
-    let sum_in = this.pseudo_comms[0];
-    let sum_out = this.notesOut[0].commitment;
-
-    for (let i = 1; i < this.pseudo_comms.length; i++) {
-      sum_in = ecAdd(sum_in, this.pseudo_comms[i]);
-    }
-
-    for (let i = 1; i < this.notesOut.length; i++) {
-      sum_out = ecAdd(sum_out, this.notesOut[i].commitment);
-    }
-
-    if (sum_in[0] !== sum_out[0] || sum_in[1] !== sum_out[1]) {
-      throw "sums do not match";
-    }
-  }
-
-  //  HELPERS ==================================================================
-
-  hashTransaction() {
-    const ZERO_HASH =
-      3188939322973067328877758594842858906904921945741806511873286077735470116993n;
-
-    let in_notes_hash;
-    if (this.notesIn.length > NUM_NOTES || this.notesOut.length > NUM_NOTES) {
-      throw "currently max NUM_NOTES notes per transaction allowed";
-    }
-
-    let hashes_in = [];
-    for (let i = 0; i < NUM_NOTES; i++) {
-      if (i >= this.notesIn.length) {
-        hashes_in.push(ZERO_HASH);
-      } else {
-        const hash = this.notesIn[i].hash;
-        if (this.notesIn[i].token !== this.tokenSpent) {
-          throw "token missmatch";
-        }
-        hashes_in.push(hash);
-      }
-    }
-    in_notes_hash = poseidon(hashes_in);
-
-    // ===================================================
-    let out_notes_hash;
-    let hashes_out = [];
-    for (let i = 0; i < NUM_NOTES; i++) {
-      if (i >= this.notesOut.length) {
-        hashes_out.push(ZERO_HASH);
-      } else {
-        const hash = this.notesOut[i].hash;
-        if (this.notesOut[i].token !== this.tokenSpent) {
-          throw "token missmatch";
-        }
-        hashes_out.push(hash);
-      }
-    }
-    out_notes_hash = poseidon(hashes_out);
-    // ===================================================
-
-    return poseidon([
-      in_notes_hash,
-      out_notes_hash,
-      this.tokenSpent,
-      this.tokenSpentPrice,
-      this.return_sig_r,
-    ]);
-  }
-
-  // TODO:  should figure out the inputs to this that make sense
-  hashPrivateInputs() {
-    return poseidon([this.tokenReceived, this.tokenReceivedPrice]);
-  }
-
-  // LOGGING ==================================================================
-  logTransaction(retAddrSig, sig) {
+    console.log(',"amounts_out": ', this.amountsOut);
+    console.log(',"blindings_out": ', this.blindingsOut);
     console.log(
-      "notesIn: ",
-      this.notesIn.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
+      ',"addresses_out": ',
+      addresses_out.map((addr) => {
+        addr = Secp256k1.JtoA(addr);
+        return [split(addr[0]), split(addr[1])];
+      })
     );
-    console.log(
-      ",notesOut: ",
-      this.notesOut.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
-    );
-    console.log(",amountsIn: ", this.amountsIn);
-    console.log(",amountsOut: ", this.amountsOut);
-    console.log(",blindingsIn: ", this.blindingsIn);
-    console.log(",blindingsOut: ", this.blindingsOut);
-    console.log(",tokenSpent: ", this.tokenSpent);
-    console.log(",tokenSpentPrice: ", this.tokenSpentPrice);
-    console.log(",tokenReceived: ", this.tokenReceived);
-    console.log(",tokenReceivedPrice: ", this.tokenReceivedPrice);
-    let Ko = noteUtils.generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
-    console.log(",Ko: ", Ko);
-    console.log(",returnAddressSig: ", retAddrSig);
-    console.log(",signature: ", sig);
+    // ======
+    let Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
+    console.log(',"return_address": ', [split(Ko[0]), split(Ko[1])]);
+    console.log(',"ret_addr_sig": ', retAddrSig);
+    console.log(',"signature": ', sig);
   }
 
   logVerifySignature(sig) {

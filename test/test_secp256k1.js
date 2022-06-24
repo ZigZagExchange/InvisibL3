@@ -118,7 +118,8 @@ function test_tx_hashing() {
   console.log("tx_hash: ", tx_hash);
 }
 
-test_tx_hashing();
+// test_tx_hashing();
+test_signing();
 
 //
 

@@ -41,7 +41,7 @@ module.exports = class Swap {
 
     //? Verify signatures for public keys and comms to zero
 
-    this.takerTx.verifyPrivReturnAddressSig(
+    this.takerTx.verifyRetAddrSig(
       returnSigA,
       this.makerTx.notesOut[0].address,
       tokenY,
@@ -49,7 +49,7 @@ module.exports = class Swap {
     );
 
     //? Verify signature for retrun address
-    this.takerTx.verifySignature_new(signatureA);
+    this.takerTx.verifySig(signatureA);
 
     //? Verify sum of inputs == sum of outputs
     this.takerTx.verifySums();
@@ -57,7 +57,7 @@ module.exports = class Swap {
     //* MAKER TRANSACTION:
 
     //? Verify signatures for public keys and comms to zero
-    this.makerTx.verifyPrivReturnAddressSig(
+    this.makerTx.verifyRetAddrSig(
       returnSigB,
       this.takerTx.notesOut[0].address,
       tokenX,
@@ -65,7 +65,7 @@ module.exports = class Swap {
     );
 
     //? Verify signature for retrun address
-    this.makerTx.verifySignature_new(signatureB);
+    this.makerTx.verifySig(signatureB);
 
     //? Verify sum of inputs == sum of outputs
     this.makerTx.verifySums();

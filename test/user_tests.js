@@ -1,14 +1,9 @@
 const chai = require("chai");
+const Secp256k1 = require("@enumatech/secp256k1-js");
+const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 const User = require("../src/notes/User.js");
-const ecMul = require("../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../circomlib/src/babyjub.js").subPoint;
-const F = require("../circomlib/src/babyjub.js").F;
-const G = require("../circomlib/src/babyjub.js").Generator;
-const H = require("../circomlib/src/babyjub.js").Base8;
 
-const noteUtils = require("../src/notes/noteUtils");
-const Note = require("../src/notes/noteUtils").Note;
+const { Note, generateOneTimeAddress } = require("../src/notes/noteUtils");
 const randomBigInt = require("random-bigint");
 
 const assert = chai.assert;
@@ -31,6 +26,11 @@ let userB = new User(
 
 let subaddressB = userB.generateSubaddress(1);
 
+let subPrivKeys = userB.subaddressPrivKeys(1);
+let Kvi_test = Secp256k1.mulG(Secp256k1.uint256(subPrivKeys.kvi));
+
+// console.log("userA", userA);
+
 describe("commitment test", function () {
   it("should check hiding an revealing amounts and blindings", async () => {
     // User A
@@ -43,8 +43,8 @@ describe("commitment test", function () {
       tx_r,
       1
     );
-    const rG = ecMul(G, tx_r);
 
+    const rG = Secp256k1.mulG(Secp256k1.uint256(tx_r));
     // User B
 
     let revealedValues = userB.revealHiddenValues(
@@ -61,14 +61,11 @@ describe("commitment test", function () {
   it("should check finding notes addressed to user", async () => {
     // User A
 
-    // Calculates the one time address from it and tx_r
-    let Ko = noteUtils.generateOneTimeAddress(
-      subaddressB.Kvi,
-      subaddressB.Ksi,
-      tx_r
-    );
+    // Calculates the one time address from Subaddress and tx_r
+    let Ko = generateOneTimeAddress(subaddressB.Kvi, subaddressB.Ksi, tx_r);
 
-    const rKsi = ecMul(subaddressB.Ksi, tx_r);
+    let Ksi = Secp256k1.AtoJ(subaddressB.Ksi[0], subaddressB.Ksi[1]);
+    const rKsi = Secp256k1.ecmul(Ksi, Secp256k1.uint256(tx_r));
 
     // User B
 
@@ -80,50 +77,57 @@ describe("commitment test", function () {
   it("should check adding and removing notes", async () => {
     // console.log(userA.noteData);
 
+    let token = 3n;
+
     let notes = [];
     for (let i = 0; i < 5; i++) {
-      let note = new noteUtils.Note([1n, 2n], [3n, 4n], 5, i);
+      let note = new Note([1n, 2n], 1234n, token, i);
       notes.push(note);
     }
 
-    userA.addNotes(notes, [1, 2, 3, 4, 5], [5, 6, 7, 8, 9]);
+    userA.addNotes(
+      notes,
+      [1n, 2n, 3n, 4n, 5n],
+      [5n, 6n, 7n, 8n, 9n],
+      [1n, 2n, 3n, 4n, 5n]
+    );
 
     // console.log(userA.noteData);
-    assert(userA.noteData.length == 5);
+    assert(userA.noteData[token].length == 5, "notes not added");
 
-    userA.removeNotes([0, 2, 4]);
-
-    // console.log("\n", userA.noteData);
-    assert(userA.noteData.length == 2);
+    // userA.removeNotes([0, 2, 4]);
+    // assert(userA.noteData[token].length == 2, "notes not removed");
   });
 
   it("should check constructing output notes", async () => {
     let prev_r = 111122223333444455556666777788889999n;
     const TOKEN = 1;
 
-    let Ko = noteUtils.generateOneTimeAddress(
-      ecMul(G, userDataA.privViewKey),
-      ecMul(G, userDataA.privSpendKey),
+    let Ko = generateOneTimeAddress(
+      userA.pubViewKey,
+      userA.pubSpendKey,
       prev_r
     );
 
     let notes = [];
     let amounts = [];
     let blindings = [];
+    let kos = [];
     for (let i = 0; i < 10; i++) {
       let amount = randomBigInt(16) * 100n;
       let blinding = randomBigInt(240);
 
-      let comm = noteUtils.newCommitment(amount, blinding);
+      let comm = pedersen([amount, blinding]);
 
-      let note = new Note(Ko, comm, TOKEN);
+      let note = new Note(Ko, comm, TOKEN, i);
 
       notes.push(note);
       amounts.push(amount);
       blindings.push(blinding);
+      kos.push(Ko);
     }
 
-    userA.addNotes(notes, amounts, blindings);
+    userA.addNotes(notes, amounts, blindings, kos);
 
     const sum = amounts.reduce((partialSum, a) => partialSum + a, 0n);
 
@@ -137,8 +141,9 @@ describe("commitment test", function () {
       tx_r
     );
 
-    const rG = ecMul(G, tx_r);
-    const rKsi = ecMul(subaddressB.Ksi, tx_r);
+    const rG = Secp256k1.mulG(Secp256k1.uint256(tx_r));
+    let Ksi = Secp256k1.AtoJ(subaddressB.Ksi[0], subaddressB.Ksi[1]);
+    const rKsi = Secp256k1.ecmul(Ksi, Secp256k1.uint256(tx_r));
 
     // User B
 
@@ -152,5 +157,5 @@ describe("commitment test", function () {
 
     assert(outBlinding1 === revealedValues.yt);
     assert(ownership);
-  });
+  }).timeout(10000);
 });

@@ -12,7 +12,7 @@ const { Note } = require("../notes/noteUtils.js");
 const User = require("../notes/User");
 
 const bigInt = require("big-integer");
-const { async } = require("@firebase/util");
+const Secp256k1 = require("@enumatech/secp256k1-js");
 
 // const collectionRef = collection(db, "notes");
 
@@ -147,8 +147,18 @@ function noteDataToJSON(noteData) {
 
 function JSONToNoteData(jsonString) {
   return JSON.parse(jsonString, (k, value) => {
-    if (typeof value === "string") {
-      return bigInt(value).value;
+    if (k === "address") {
+      return value.map((v) => Secp256k1.uint256(v));
+    } else if (typeof value === "string") {
+      try {
+        return bigInt(value).value;
+      } catch {
+        if (value.startsWith("0x")) {
+          return BigInt(value, 16);
+        } else {
+          return BigInt("0x" + value, 16);
+        }
+      }
     }
     if (k == "note") {
       return new Note(value.address, value.commitment, value.token, value.idx);

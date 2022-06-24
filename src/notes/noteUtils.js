@@ -1,11 +1,6 @@
 const poseidon = require("../../circomlib/src/poseidon");
 const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
-const G = require("../../circomlib/src/babyjub.js").Generator;
-const H = require("../../circomlib/src/babyjub.js").Base8;
-const F = require("../../circomlib/src/babyjub.js").F;
-const ecMul = require("../../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
+const Secp256k1 = require("@enumatech/secp256k1-js");
 const bigInt = require("big-integer");
 const randomBigInt = require("random-bigint");
 
@@ -23,8 +18,8 @@ class Note {
   }
 
   hashNote() {
-    let addrHighLowY = splitUint256(this.address[1]);
-    let addrHighLowX = splitUint256(this.address[0]);
+    let addrHighLowY = splitUint256(this.address[1].toString());
+    let addrHighLowX = splitUint256(this.address[0].toString());
 
     return BigInt(
       computeHashOnElements([
@@ -70,24 +65,41 @@ function newCommitment(amount, blinding_factor) {
   return ecAdd(Gx, Ha);
 }
 
-//TODO Move this two functions to User.js Uesr class
-function generateOneTimeAddress(pub_view_key, pub_spend_key, r) {
+//TODO Move this two functions to User.js User class
+function generateOneTimeAddress(Kv, Ks, r) {
   // takes just the first 250 bits of the hash (both for cairo curve and for circom)
   // Ko =  H(r * Kv)G + Ks
 
-  let rKv = ecMul(pub_view_key, r);
-  rKv.push(0);
-  let h = poseidon(rKv);
+  if (Kv.length == 2) {
+    Kv = Secp256k1.AtoJ(Kv[0], Kv[1]);
+  }
+  if (Ks.length == 2) {
+    Ks = Secp256k1.AtoJ(Ks[0], Ks[1]);
+  }
 
-  return ecAdd(ecMul(G, h), pub_spend_key);
+  let rKv = Secp256k1.ecmul(Kv, Secp256k1.uint256(r));
+
+  rKv = Secp256k1.JtoA(rKv);
+  let h = trimHash(poseidon(rKv), 250);
+
+  let hG = Secp256k1.mulG(Secp256k1.uint256(h));
+  hG = Secp256k1.AtoJ(hG[0], hG[1]);
+
+  return Secp256k1.ecadd(hG, Ks);
 }
 
-function oneTimeAddressPrivKey(pub_view_key, priv_spend_key, r) {
+function oneTimeAddressPrivKey(Kv, priv_spend_key, r) {
   // takes just the first 250 bits of the hash
   // ko = H(r * Kv) + ks
-  let rKv = ecMul(pub_view_key, r);
-  rKv.push(0);
-  let h = poseidon(rKv);
+
+  if (Kv.length == 2) {
+    Kv = Secp256k1.AtoJ(Kv[0], Kv[1]);
+  }
+  let rKv = Secp256k1.ecmul(Kv, Secp256k1.uint256(r));
+
+  let _rKv = Secp256k1.JtoA(rKv);
+  let h = trimHash(poseidon(_rKv), 250);
+
   return h + priv_spend_key;
 }
 
