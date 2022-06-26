@@ -1,12 +1,17 @@
-const poseidon = require("../../circomlib/src/poseidon.js");
 const treeUtils = require("./treeUtils.js");
+const { pedersen } = require("starknet/utils/hash");
 
 module.exports = class Tree {
   constructor(_leafNodes, depth = treeUtils.getBase2Log(_leafNodes.length)) {
-    this.leafNodes = _leafNodes;
+    this.leafNodes = treeUtils.padArrayEnd(_leafNodes, 8, 0);
     this.depth = depth;
     this.innerNodes = this.treeFromLeafNodes();
     this.root = this.innerNodes[0][0];
+    // Keep track of zero notes below
+    // count = how many notes are set(not zero)
+    // zeroIdxs = indexes of notes below index==count that are zero
+    this.count = _leafNodes.length;
+    this.zeroIdxs = [];
   }
 
   updateInnerNodes(leaf, idx, merkle_path) {
@@ -37,6 +42,15 @@ module.exports = class Tree {
   }
 
   updateNode(leafHash, idx, proof) {
+    if (idx > this.count) {
+      throw "update previous empty leaves first";
+    } else if (idx == this.count) {
+      this.count++;
+    } else {
+      // if this check is too expensive we can use a bloom filter
+      this.zeroIdxs = this.zeroIdxs.filter((el) => el !== idx);
+    }
+
     this.updateLeafNodes(leafHash, idx);
     return this.updateInnerNodes(leafHash, idx, proof);
   }
@@ -73,7 +87,7 @@ module.exports = class Tree {
       ? [leafHash, proof[0]]
       : [proof[0], leafHash];
 
-    hashes[0] = poseidon(hash_inp);
+    hashes[0] = pedersen(hash_inp);
 
     preimage.set(hashes[0], hash_inp);
 
@@ -82,7 +96,7 @@ module.exports = class Tree {
         ? [hashes[i - 1], proof[i]]
         : [proof[i], hashes[i - 1]];
 
-      hashes[i] = poseidon(hash_inp);
+      hashes[i] = pedersen(hash_inp);
 
       preimage.set(hashes[i], hash_inp);
     }
@@ -98,6 +112,26 @@ module.exports = class Tree {
   verifyRoot() {
     let treeTemp = this.treeFromLeafNodes();
     return this.root == treeTemp[0][0];
+  }
+
+  firstNZeroIdxs(n) {
+    if (n == 0) {
+      return [];
+    }
+
+    let idxs = [];
+    if (n <= this.zeroIdxs.length) {
+      for (let i = 0; i < n; i++) {
+        idxs.push(this.zeroIdxs[i]);
+      }
+    } else {
+      idxs.concat(this.zeroIdxs);
+      for (let i = 0; i < n - this.zeroIdxs.length; i++) {
+        idxs.push(this.count + i);
+      }
+    }
+
+    return idxs;
   }
 
   zeros(depth) {

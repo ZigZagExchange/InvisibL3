@@ -1,4 +1,4 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -66,6 +66,155 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     %{ print("tx_hash: ", ids.tx_hash) %}
 
     return ()
+end
+
+func hash_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    amounts_in_len : felt,
+    amounts_in : felt*,
+    blindings_in_len : felt,
+    blindings_in : felt*,
+    addresses_in_len : felt,
+    addresses_in : EcPoint*,
+    amounts_out_len : felt,
+    amounts_out : felt*,
+    blindings_out_len : felt,
+    blindings_out : felt*,
+    addresses_out_len : felt,
+    addresses_out : EcPoint*,
+    token_spent : felt,
+    token_spent_price : felt,
+    return_sig_r : felt,
+) -> (res, leaves_in_len : felt, leaves_in : felt*, leaves_out_len : felt, leaves_out : felt*):
+    alloc_locals
+
+    let (local empty_arr) = alloc()
+    let (hashed_notes_in_len : felt, hashed_notes_in : felt*) = hash_notes_array(
+        amounts_in_len,
+        amounts_in,
+        blindings_in_len,
+        blindings_in,
+        addresses_in_len,
+        addresses_in,
+        token_spent,
+        0,
+        empty_arr,
+    )
+
+    let (local empty_arr) = alloc()
+    let (hashed_notes_out_len : felt, hashed_notes_out : felt*) = hash_notes_array(
+        amounts_out_len,
+        amounts_out,
+        blindings_out_len,
+        blindings_out,
+        addresses_out_len,
+        addresses_out,
+        token_spent,
+        0,
+        empty_arr,
+    )
+
+    let (tx_hash : felt) = _hash_transaction_internal(
+        hashed_notes_in_len,
+        hashed_notes_in,
+        hashed_notes_out_len,
+        hashed_notes_out,
+        token_spent,
+        token_spent_price,
+        return_sig_r,
+    )
+
+    return (tx_hash, hashed_notes_in_len, hashed_notes_in, hashed_notes_out_len, hashed_notes_out)
+end
+
+func hash_notes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    amounts_len : felt,
+    amounts : felt*,
+    blindings_len : felt,
+    blindings : felt*,
+    addresses_len : felt,
+    addresses : EcPoint*,
+    token : felt,
+    arr_len : felt,
+    arr : felt*,
+) -> (arr_len : felt, arr : felt*):
+    alloc_locals
+    if amounts_len == 0:
+        return (arr_len, arr)
+    end
+
+    let addr : EcPoint = addresses[0]
+    let amount = amounts[0]
+    let blinding = blindings[0]
+
+    let (comm : felt) = hash2{hash_ptr=pedersen_ptr}(amount, blinding)
+
+    let (note_hash : felt) = _hash_note(addr, token, amount, blinding, comm)
+
+    assert arr[arr_len] = note_hash
+
+    return hash_notes_array(
+        amounts_len - 1,
+        &amounts[1],
+        blindings_len - 1,
+        &blindings[1],
+        addresses_len - 1,
+        &addresses[1],
+        token,
+        arr_len + 1,
+        arr,
+    )
+end
+
+func _hash_note{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    address : EcPoint, token : felt, amount : felt, blinding : felt, commitment : felt
+) -> (res : felt):
+    alloc_locals
+
+    let (px : Uint256) = bigint_to_uint256(address.x)
+    let (py : Uint256) = bigint_to_uint256(address.y)
+
+    let (hash_x : felt) = hash2{hash_ptr=pedersen_ptr}(px.high, px.low)
+    let (hash_y : felt) = hash2{hash_ptr=pedersen_ptr}(py.high, py.low)
+
+    let (commitment : felt) = hash2{hash_ptr=pedersen_ptr}(amount, blinding)
+
+    let hash_ptr = pedersen_ptr
+    with hash_ptr:
+        let (hash_state_ptr) = hash_init()
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, hash_x)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, hash_y)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, commitment)
+
+        let (res) = hash_finalize(hash_state_ptr)
+        let pedersen_ptr = hash_ptr
+        return (res=res)
+    end
+end
+
+func _hash_transaction_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    hashes_in_len : felt,
+    hashes_in : felt*,
+    hashes_out_len : felt,
+    hashes_out : felt*,
+    token_spent : felt,
+    token_spent_price : felt,
+    return_sig_r : felt,
+) -> (res):
+    alloc_locals
+
+    let hash_ptr = pedersen_ptr
+    with hash_ptr:
+        let (hash_state_ptr) = hash_init()
+        let (hash_state_ptr) = hash_update(hash_state_ptr, hashes_in, hashes_in_len)
+        let (hash_state_ptr) = hash_update(hash_state_ptr, hashes_out, hashes_out_len)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token_spent)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token_spent_price)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, return_sig_r)
+        let (res) = hash_finalize(hash_state_ptr)
+        let pedersen_ptr = hash_ptr
+        return (res=res)
+    end
 end
 
 func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -176,73 +325,6 @@ func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     %}
 
     return ()
-end
-
-func hash_notes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    notes_len : felt, notes : Note*, arr_len : felt, arr : felt*, total_len : felt
-) -> (arr_len : felt, arr : felt*):
-    alloc_locals
-    if arr_len == total_len:
-        return (arr_len, arr)
-    end
-
-    let (note_hash : felt) = hash_note(notes[0])
-
-    assert arr[arr_len] = note_hash
-
-    return hash_notes_array(notes_len - 1, &notes[1], arr_len + 1, arr, total_len)
-end
-
-func hash_note{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(note : Note) -> (
-    res : felt
-):
-    alloc_locals
-
-    let (px : Uint256) = bigint_to_uint256(note.address.x)
-    let (py : Uint256) = bigint_to_uint256(note.address.y)
-
-    let (hash_x : felt) = hash2{hash_ptr=pedersen_ptr}(px.high, px.low)
-    let (hash_y : felt) = hash2{hash_ptr=pedersen_ptr}(py.high, py.low)
-
-    let (commitment : felt) = hash2{hash_ptr=pedersen_ptr}(note.amount, note.blinding_factor)
-
-    let hash_ptr = pedersen_ptr
-    with hash_ptr:
-        let (hash_state_ptr) = hash_init()
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, hash_x)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, hash_y)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, note.token)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, commitment)
-
-        let (res) = hash_finalize(hash_state_ptr)
-        let pedersen_ptr = hash_ptr
-        return (res=res)
-    end
-end
-
-func hash_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    hashes_in_len : felt,
-    hashes_in : felt*,
-    hashes_out_len : felt,
-    hashes_out : felt*,
-    token_spent : felt,
-    token_spent_price : felt,
-    return_sig_r : felt,
-) -> (res):
-    alloc_locals
-
-    let hash_ptr = pedersen_ptr
-    with hash_ptr:
-        let (hash_state_ptr) = hash_init()
-        let (hash_state_ptr) = hash_update(hash_state_ptr, hashes_in, hashes_in_len)
-        let (hash_state_ptr) = hash_update(hash_state_ptr, hashes_out, hashes_out_len)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token_spent)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token_spent_price)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, return_sig_r)
-        let (res) = hash_finalize(hash_state_ptr)
-        let pedersen_ptr = hash_ptr
-        return (res=res)
-    end
 end
 
 # #############################################################################

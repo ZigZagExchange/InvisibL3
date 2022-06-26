@@ -37,6 +37,7 @@ const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 //   }
 // }
 
+// Todo change this back
 function poseidon(inputs) {
   assert(inputs.length > 0);
   assert(inputs.length < N_ROUNDS_P.length - 1);

@@ -1,5 +1,5 @@
-const poseidon = require("../../circomlib/src/poseidon.js");
 const { BigNumber: BN } = require("ethers");
+const { pedersen } = require("starknet/utils/hash");
 
 module.exports = {
   rootFromLeafAndPath(leaf, idx, merkle_path) {
@@ -15,7 +15,7 @@ module.exports = {
         BN.from(merkle_path[0]).toBigInt() -
         BN.from(merkle_path_pos[0]).toBigInt() *
           (BN.from(merkle_path[0]).toBigInt() - BN.from(leaf).toBigInt());
-      root[0] = poseidon([left, right]);
+      root[0] = pedersen([left, right]);
       for (var i = 1; i < depth; i++) {
         left =
           BN.from(root[i - 1]).toBigInt() -
@@ -25,7 +25,7 @@ module.exports = {
           BN.from(merkle_path[i]).toBigInt() -
           BN.from(merkle_path_pos[i]).toBigInt() *
             (BN.from(merkle_path[i]).toBigInt() - root[i - 1]);
-        root[i] = poseidon([left, right]);
+        root[i] = pedersen([left, right]);
       }
       return root[depth - 1];
     } else {
@@ -48,7 +48,8 @@ module.exports = {
         BN.from(merkle_path[0]).toBigInt() -
         BN.from(merkle_path_pos[0]).toBigInt() *
           (BN.from(merkle_path[0]).toBigInt() - BN.from(leaf).toBigInt());
-      innerNodes[0] = poseidon([left, right]);
+
+      innerNodes[0] = pedersen([left, right]);
       for (var i = 1; i < depth; i++) {
         left =
           innerNodes[i - 1] -
@@ -58,7 +59,7 @@ module.exports = {
           BN.from(merkle_path[i]).toBigInt() -
           BN.from(merkle_path_pos[i]).toBigInt() *
             (BN.from(merkle_path[i]).toBigInt() - innerNodes[i - 1]);
-        innerNodes[i] = poseidon([left, right]);
+        innerNodes[i] = pedersen([left, right]);
       }
       return innerNodes;
     } else {
@@ -128,7 +129,7 @@ module.exports = {
       let arrayHash = [];
       for (var i = 0; i < array.length; i = i + 2) {
         arrayHash.push(
-          poseidon([array[i].toString(), array[i + 1].toString()])
+          pedersen([array[i].toString(), array[i + 1].toString()])
         );
       }
       return arrayHash;
@@ -156,5 +157,9 @@ module.exports = {
     } else {
       console.log("please enter an array");
     }
+  },
+
+  padArrayEnd(arr, len, padding) {
+    return arr.concat(Array(len - arr.length).fill(padding));
   },
 };

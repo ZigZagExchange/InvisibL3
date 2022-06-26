@@ -1,10 +1,56 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.math import assert_lt
 
-func verify_commitment{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func verify_commitments{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    commitments_len : felt,
+    commitments : felt*,
+    amounts_len : felt,
+    amounts : felt*,
+    blindings_len : felt,
+    blindings : felt*,
+):
+    alloc_locals
+
+    assert commitments_len = amounts_len
+    assert amounts_len = blindings_len
+
+    verify_commitments(commitments_len, commitments, amounts_len, amounts, blindings_len, blindings)
+
+    return ()
+end
+
+func _verify_commitments_inner{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    commitments_len : felt,
+    commitments : felt*,
+    amounts_len : felt,
+    amounts : felt*,
+    blindings_len : felt,
+    blindings : felt*,
+):
+    if commitments_len == 0:
+        return ()
+    end
+
+    let comm = commitments[0]
+    let amount = amounts[0]
+    let blinding = blindings[0]
+
+    _verify_commitment(comm, amount, blinding)
+
+    return _verify_commitments_inner(
+        commitments_len - 1,
+        &commitments[1],
+        amounts_len - 1,
+        &amounts[1],
+        blindings_len - 1,
+        &blindings[1],
+    )
+end
+
+func _verify_commitment{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     commitment : felt, amount : felt, blinding_factor : felt
 ):
     alloc_locals
@@ -21,32 +67,3 @@ func verify_commitment{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}
 
     return ()
 end
-
-# template VerifyCommitments(n){
-#     signal input C[n];
-#     signal input amounts[n];
-#     signal input blindings[n];
-
-# component commitments[n];
-#     component lessThan[n];
-#     component equalIf[n];
-
-# for (var i=0; i<n; i++) {
-
-# // Verify amounts are in range (non negative)
-#         lessThan[i] = LessThan(68);
-#         lessThan[i].in[0] <== amounts[i];
-#         lessThan[i].in[1] <== 2 ** 67;
-
-# lessThan[i].out === 1;
-
-# commitments[i] = Poseidon(2);
-#         commitments[i].inputs[0] <== amounts[i];
-#         commitments[i].inputs[1] <== blindings[i];
-
-# equalIf[i] = ForceEqualIfEnabled();
-#         equalIf[i].in[0] <== commitments[i].out;
-#         equalIf[i].in[1] <== C[i];
-#         equalIf[i].enabled <== C[i];
-
-# }

@@ -1,4 +1,4 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.alloc import alloc

@@ -110,6 +110,8 @@ module.exports = class NoteTransaction {
     let rs = signature.slice(1);
     let tx_hash = this.hashTransaction();
 
+    console.log("-->tx_hash: <-- ", tx_hash);
+
     let c_input = [tx_hash];
 
     let c_split = splitUint256(c);
@@ -435,7 +437,7 @@ module.exports = class NoteTransaction {
 
   //! DEPRECATED ===============================================================
 
-  // LOGGING ==================================================================
+  //* LOGGING ==================================================================
   logTransaction(retAddrSig, sig) {
     let indexes = [];
     let addresses_in = [];
@@ -483,6 +485,7 @@ module.exports = class NoteTransaction {
     );
     // ======
     let Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
+    Ko = Secp256k1.JtoA(Ko);
     console.log(',"return_address": ', [split(Ko[0]), split(Ko[1])]);
     console.log(',"ret_addr_sig": ', retAddrSig);
     console.log(',"signature": ', sig);

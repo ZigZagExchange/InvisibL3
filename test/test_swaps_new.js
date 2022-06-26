@@ -2,9 +2,9 @@ const {
   Note,
   generateOneTimeAddress,
   oneTimeAddressPrivKey,
+  split,
 } = require("../src/notes/noteUtils");
 const Secp256k1 = require("@enumatech/secp256k1-js");
-// const poseidon = require("../circomlib/src/poseidon");
 const randomBigInt = require("random-bigint");
 const bigInt = require("big-integer");
 
@@ -147,6 +147,7 @@ async function testSwap() {
   let retAddrSigA = txA.signReturnAddressSig(ko);
 
   let KoA = generateOneTimeAddress(subaddressA.Kvi, subaddressA.Ksi, tx_r);
+
   txA.verifyRetAddrSig(retAddrSigA, KoA);
 
   let sigA = txA.signTx(outNoteDataA.kosIn);
@@ -163,7 +164,7 @@ async function testSwap() {
   console.log(',"prev_root":', prev_root);
   console.log(',"new_root":', new_root);
 
-  // ==========================================================================0
+  //* ======================================================================================
 
   // let res = userB.calculateAmounts(X_AMOUNT, TOKEN_X_PRICE, TOKEN_Y_PRICE);
   // let Y_AMOUNT = res.outputAmount;
@@ -219,62 +220,75 @@ async function testSwap() {
 }
 
 function update_state(notes_in, notes_out) {
-  // todo figure out indexes
   let init_state = notes_in.map((n) => n.hash);
 
-  init_state = padArrayEnd(init_state, 8, 0);
+  // init_state = padArrayEnd(init_state, 8, 0);
 
   let tree = new Tree(init_state, 3);
 
   let maxLen = Math.max(notes_in.length, notes_out.length);
+
+  let indexes = notes_in.map((n) => n.index);
+  let zeroIndexes = tree.firstNZeroIdxs(maxLen - indexes.length);
+  indexes = indexes.concat(zeroIndexes);
 
   let prev_root = tree.root;
 
   let proofs_in = [];
   let preimages_in = [];
   for (let i = 0; i < notes_in.length; i++) {
-    let proof = tree.getProof(i); //(notes_in[i].index);
+    let proof = tree.getProof(indexes[i]); //(notes_in[i].index);
     let multiUpdateProof = tree.getMultiUpdateProof(
       notes_in[i].hash,
       proof.proof,
       proof.proofPos
     );
-    proofs_in.push(proof.proof);
+    if (i == 0) {
+      proofs_in.push(proof.proof);
+    }
+
     preimages_in.push(multiUpdateProof);
   }
   for (let i = notes_in.length; i < maxLen; i++) {
-    let proof = tree.getProof(i); //(notes_in[i].index);
+    let proof = tree.getProof(indexes[i]); //(notes_in[i].index);
     let multiUpdateProof = tree.getMultiUpdateProof(
       0,
       proof.proof,
       proof.proofPos
     );
-    proofs_in.push(proof.proof);
     preimages_in.push(multiUpdateProof);
   }
 
   for (let i = 0; i < notes_out.length; i++) {
-    tree.updateNode(notes_out[i].hash, i, proofs_in[i]);
+    tree.updateNode(notes_out[i].hash, indexes[i], proofs_in[i]);
+
+    if (i < notes_out.length - 1) {
+      let nextProof = tree.getProof(indexes[i + 1]);
+      proofs_in.push(nextProof.proof);
+    }
   }
   for (let i = notes_out.length; i < maxLen; i++) {
-    tree.updateNode(0, i, proofs_in[i]);
+    tree.updateNode(0, indexes[i], proofs_in[i]);
+
+    if (i < notes_out.length - 1) {
+      let nextProof = tree.getProof(indexes[i + 1]);
+      proofs_in.push(nextProof.proof);
+    }
   }
 
-  let proofs_out = [];
   let preimages_out = [];
   for (let i = 0; i < notes_out.length; i++) {
-    let proof = tree.getProof(i); //(notes_out[i].index);
+    let proof = tree.getProof(indexes[i]); //(notes_out[i].index);
     let multiUpdateProof2 = tree.getMultiUpdateProof(
       notes_out[i].hash,
       proof.proof,
       proof.proofPos
     );
 
-    proofs_out.push(proof.proof);
     preimages_out.push(multiUpdateProof2);
   }
   for (let i = notes_out.length; i < maxLen; i++) {
-    let proof = tree.getProof(i); //(notes_in[i].index);
+    let proof = tree.getProof(indexes[i]); //(notes_in[i].index);
     let multiUpdateProof = tree.getMultiUpdateProof(
       0,
       proof.proof,

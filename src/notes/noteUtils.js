@@ -18,8 +18,15 @@ class Note {
   }
 
   hashNote() {
-    let addrHighLowY = splitUint256(this.address[1].toString());
-    let addrHighLowX = splitUint256(this.address[0].toString());
+    let addr;
+    if (this.address.length == 3) {
+      addr = Secp256k1.JtoA(this.address);
+    } else {
+      addr = this.address;
+    }
+
+    let addrHighLowY = splitUint256(addr[1].toString());
+    let addrHighLowX = splitUint256(addr[0].toString());
 
     return BigInt(
       computeHashOnElements([

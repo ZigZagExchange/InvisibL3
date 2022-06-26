@@ -1,4 +1,4 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -18,6 +18,9 @@ from starkware.cairo.common.hash_state import (
 )
 
 from helpers.utils import Note
+from dummy.tests import test_log_array
+
+const TREE_DEPTH = 3
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
@@ -106,26 +109,71 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     return ()
 end
 
-func build_leaf_nodes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    notes_len : felt, notes : Note*, arr_len : felt, arr : felt*, total_len : felt
-) -> (arr_len : felt, arr : felt*):
+func validate_merkle_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    prev_root : felt,
+    new_root : felt,
+    indexes_len : felt,
+    indexes : felt*,
+    leaf_nodes_in_len : felt,
+    leaf_nodes_in : felt*,
+    leaf_nodes_out_len : felt,
+    leaf_nodes_out : felt*,
+):
     alloc_locals
 
-    if arr_len == total_len:
-        return (arr_len, arr)
-    end
+    # Pad input leaf nodes with zeros with if there are more output leaf nodes and vise-versa
+    # more inp notes <=> zero out some leaf nodes;  more out notes <=>  appending new notes
 
-    let amount : felt = notes[0].amount
-    let blinding_factor : felt = notes[0].blinding_factor
-    let token : felt = notes[0].token
-    let address : EcPoint = notes[0].address
+    let (leaf_nodes_in_len : felt, leaf_nodes_in : felt*) = pad_array(
+        leaf_nodes_in_len, leaf_nodes_in, indexes_len, 0
+    )
+    let (leaf_nodes_out_len : felt, leaf_nodes_out : felt*) = pad_array(
+        leaf_nodes_out_len, leaf_nodes_out, indexes_len, 0
+    )
 
-    let (comm : felt) = get_commitment(amount, blinding_factor)
-    let (leaf_hash : felt) = note_leaf(address, token, comm)
+    test_log_array(leaf_nodes_in_len, leaf_nodes_in)
+    test_log_array(leaf_nodes_out_len, leaf_nodes_out)
 
-    assert arr[arr_len] = leaf_hash
+    # initialize dict
+    let tree_update_dict : DictAccess* = dict_new()
 
-    return build_leaf_nodes_array(notes_len - 1, &notes[1], arr_len + 1, arr, total_len)
+    # write the initial values to dict
+    let (tree_update_dict : DictAccess*) = array_write_to_dict(
+        tree_update_dict, indexes_len, indexes, leaf_nodes_in_len, leaf_nodes_in
+    )
+    let dict_start = tree_update_dict
+
+    # update the input leaf nodes with the output leaf nodes
+    let (tree_update_dict : DictAccess*) = array_update_dict(
+        tree_update_dict,
+        indexes_len,
+        indexes,
+        leaf_nodes_in_len,
+        leaf_nodes_in,
+        leaf_nodes_out_len,
+        leaf_nodes_out,
+    )
+
+    # finalize the dict
+    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
+        dict_start, tree_update_dict
+    )
+
+    _check_merkle_tree_updates_internal(prev_root, new_root, finalized_dict_start, indexes_len)
+
+    return ()
+end
+
+func _check_merkle_tree_updates_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    prev_root : felt, new_root : felt, finalized_dict_start : DictAccess*, num_updates : felt
+):
+    alloc_locals
+
+    merkle_multi_update{hash_ptr=pedersen_ptr}(
+        finalized_dict_start, num_updates, TREE_DEPTH, prev_root, new_root
+    )
+
+    return ()
 end
 
 func array_write_to_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -177,18 +225,19 @@ func array_update_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}
     )
 end
 
-func check_merkle_tree_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    alloc_locals
+func pad_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    arr_len : felt, arr : felt*, total_len : felt, pad_value : felt
+) -> (arr_len : felt, arr : felt*):
+    if arr_len == total_len:
+        return (arr_len, arr)
+    end
 
-    # let (comm : felt) = get_commitment(amount, blinding_factor)
-    # let (leaf_hash : felt) = note_leaf(address, token, comm)
+    assert arr[arr_len] = pad_value
 
-    # %{ print("note leaf: ", ids.leaf_hash) %}
-
-    return ()
+    return pad_array(arr_len + 1, arr, total_len, pad_value)
 end
 
-# notes_in_len : felt*, notes_in : Note*, notes_out_len : felt*, notes_out : Note*
+# # ====================================================
 func handle_inputs{pedersen_ptr : HashBuiltin*}(
     prev_root : felt*,
     new_root : felt*,
@@ -300,10 +349,26 @@ func handle_inputs{pedersen_ptr : HashBuiltin*}(
     return ()
 end
 
-func get_commitment{pedersen_ptr : HashBuiltin*}(amount : felt, blinding_factor : felt) -> (res):
-    let (hash : felt) = hash2{hash_ptr=pedersen_ptr}(amount, blinding_factor)
+func build_leaf_nodes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    notes_len : felt, notes : Note*, arr_len : felt, arr : felt*, total_len : felt
+) -> (arr_len : felt, arr : felt*):
+    alloc_locals
 
-    return (hash)
+    if arr_len == total_len:
+        return (arr_len, arr)
+    end
+
+    let amount : felt = notes[0].amount
+    let blinding_factor : felt = notes[0].blinding_factor
+    let token : felt = notes[0].token
+    let address : EcPoint = notes[0].address
+
+    let (comm : felt) = get_commitment(amount, blinding_factor)
+    let (leaf_hash : felt) = note_leaf(address, token, comm)
+
+    assert arr[arr_len] = leaf_hash
+
+    return build_leaf_nodes_array(notes_len - 1, &notes[1], arr_len + 1, arr, total_len)
 end
 
 func note_leaf{pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -328,112 +393,8 @@ func note_leaf{pedersen_ptr : HashBuiltin*, range_check_ptr}(
     end
 end
 
-# # TESTS ======================================================================================
+func get_commitment{pedersen_ptr : HashBuiltin*}(amount : felt, blinding_factor : felt) -> (res):
+    let (hash : felt) = hash2{hash_ptr=pedersen_ptr}(amount, blinding_factor)
 
-func mrkl_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    prev_root : felt, new_root : felt
-):
-    alloc_locals
-
-    const new_leaf = 3164323627516594121377279009776584742545140296216692733963317135789580090177
-
-    %{ initial_dict = {1:0} %}
-    let my_dict : DictAccess* = dict_new()
-    dict_write{dict_ptr=my_dict}(1, 0)
-    let dict_start = my_dict
-
-    dict_update{dict_ptr=my_dict}(1, 0, new_leaf)
-
-    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
-        dict_start, my_dict
-    )
-
-    merkle_multi_update{hash_ptr=pedersen_ptr}(finalized_dict_start, 1, 3, prev_root, new_root)
-
-    return ()
-end
-
-func dict_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    alloc_locals
-
-    %{ initial_dict = {12:0, 1:0, 4:0} %}
-    let my_dict : DictAccess* = dict_new()
-    dict_write{dict_ptr=my_dict}(12, 1)
-    dict_write{dict_ptr=my_dict}(1, 123)
-    dict_write{dict_ptr=my_dict}(4, 2020)
-    let dict_start = my_dict
-
-    dict_update{dict_ptr=my_dict}(12, 1, 2)
-    dict_update{dict_ptr=my_dict}(1, 123, 456)
-    dict_update{dict_ptr=my_dict}(4, 2020, 2022)
-
-    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
-        dict_start, my_dict
-    )
-
-    let x : DictAccess = finalized_dict_start[0]
-    let y : DictAccess = finalized_dict_start[1]
-    let z : DictAccess = finalized_dict_start[2]
-
-    %{
-        print("key:", ids.x.key)
-        print("prev:", ids.x.prev_value)
-        print("new:", ids.x.new_value)
-        print("key:", ids.y.key)
-        print("prev:", ids.y.prev_value)
-        print("new:", ids.y.new_value)
-        print("key:", ids.z.key)
-        print("prev:", ids.z.prev_value)
-        print("new:", ids.z.new_value)
-    %}
-
-    return ()
-end
-
-func handle_inputs_test{pedersen_ptr : HashBuiltin*}(x : felt*):
-    %{
-        ids.prev_root = program_input["prev_root"]
-        ids.new_root = program_input["new_root"]
-
-        preimage = program_input["preimage"]
-        preimage = {int(k):v for k,v in preimage.items()}
-
-
-        tokens = program_input["tokens"]
-        rs_ = sig[1:]
-        ids.rs_len = len(rs_)
-        ids.rs = rs = segments.add()
-        for i, val in enumerate(rs_):
-            memory[rs + i] = val  
-
-
-        ids.amounts = program_input["amount"]
-        ids.blinding_factors = program_input["blinding_factor"]
-
-        addresses = program_input["address"]
-        # ids.addresses_len = len(addresses_)
-        # ids.addresses = addresses = segments.add()
-
-        POINT_SIZE = ids.EcPoint.SIZE
-        X_OFFSET = ids.EcPoint.x
-        Y_OFFSET = ids.EcPoint.y
-
-        BIG_INT_SIZE = ids.BigInt3.SIZE
-        BIG_INT_0_OFFSET = ids.BigInt3.d0
-        BIG_INT_1_OFFSET = ids.BigInt3.d1
-        BIG_INT_2_OFFSET = ids.BigInt3.d2
-
-        addr_x = ids.address.address_  + X_OFFSET
-        addr_y = ids.address.address_  + Y_OFFSET
-
-        memory[addr_x + BIG_INT_0_OFFSET] = addr[0][0]
-        memory[addr_x + BIG_INT_1_OFFSET] = addr[0][1]
-        memory[addr_x + BIG_INT_2_OFFSET] = addr[0][2]
-
-        memory[addr_y + BIG_INT_0_OFFSET] = addr[1][0]
-        memory[addr_y + BIG_INT_1_OFFSET] = addr[1][1]
-        memory[addr_y + BIG_INT_2_OFFSET] = addr[1][2]
-    %}
-
-    return ()
+    return (hash)
 end

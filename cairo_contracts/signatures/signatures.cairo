@@ -1,4 +1,4 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -79,7 +79,7 @@ func verify_sig{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     let (local empty_arr : felt*) = alloc()
 
     let (c_inputs_len : felt, c_inputs : felt*) = build_c_inputs_array(
-        addresses_len, addresses, tx_hash, c, rs_len, rs, 0, empty_arr, rs_len
+        addresses_len, addresses, tx_hash, c, rs_len, rs, 0, empty_arr
     )
 
     let (c_prime : felt) = get_c_prime(tx_hash, c_inputs_len, c_inputs)
@@ -101,11 +101,10 @@ func build_c_inputs_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_p
     rs : felt*,
     c_inputs_len : felt,
     c_inputs : felt*,
-    total_len,
 ) -> (c_inputs_len : felt, c_inputs : felt*):
     alloc_locals
 
-    if c_inputs_len == total_len:
+    if addresses_len == 0:
         return (c_inputs_len, c_inputs)
     end
 
@@ -120,15 +119,7 @@ func build_c_inputs_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_p
     assert c_inputs[c_inputs_len] = c_input
 
     return build_c_inputs_array(
-        addresses_len - 1,
-        &addresses[1],
-        tx_hash,
-        c,
-        rs_len - 1,
-        &rs[1],
-        c_inputs_len + 1,
-        c_inputs,
-        total_len,
+        addresses_len - 1, &addresses[1], tx_hash, c, rs_len - 1, &rs[1], c_inputs_len + 1, c_inputs
     )
 end
 
@@ -178,47 +169,4 @@ func get_c_prime{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         let pedersen_ptr = hash_ptr
         return (res=res)
     end
-end
-
-func secp256k1_tests{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    alloc_locals
-
-    local Gx : BigInt3 = BigInt3(
-        d0=17117865558768631194064792, d1=12501176021340589225372855, d2=9198697782662356105779718
-        )
-    local Gy : BigInt3 = BigInt3(
-        d0=6441780312434748884571320, d1=57953919405111227542741658, d2=5457536640262350763842127
-        )
-
-    local G : EcPoint = EcPoint(Gx, Gy)
-
-    let G2 : EcPoint = ec_double(G)
-
-    let tripleG : EcPoint = ec_add(G, G2)
-
-    let multiplier = BigInt3(d0=12345, d1=0, d2=0)
-
-    let mulG : EcPoint = ec_mul(G, multiplier)
-
-    %{
-        print("mulG: ", ids.mulG.x.d0)
-        print("mulG: ", ids.mulG.x.d1) 
-        print("mulG: ", ids.mulG.x.d2) 
-        print("mulG: ", ids.mulG.y.d0)
-        print("mulG: ", ids.mulG.y.d1) 
-        print("mulG: ", ids.mulG.y.d2)
-    %}
-
-    return ()
-end
-
-func dummy_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-    alloc_locals
-
-    %{
-        testVal = program_input["test_val"]
-        print("testVal set: ", testVal)
-    %}
-
-    return ()
 end
