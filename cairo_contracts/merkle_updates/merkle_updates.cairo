@@ -71,12 +71,12 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
 
     %{ initial_dict = {k: 0 for k in indexes__} %}
     let my_dict : DictAccess* = dict_new()
-    let (my_dict : DictAccess*) = array_write_to_dict(
+    let (my_dict : DictAccess*) = _array_write_to_dict(
         my_dict, indexes_len, indexes, laef_nodes_in_len, laef_nodes_in
     )
     let dict_start = my_dict
 
-    let (my_dict : DictAccess*) = array_update_dict(
+    let (my_dict : DictAccess*) = _array_update_dict(
         my_dict,
         indexes_len,
         indexes,
@@ -131,20 +131,17 @@ func validate_merkle_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_chec
         leaf_nodes_out_len, leaf_nodes_out, indexes_len, 0
     )
 
-    test_log_array(leaf_nodes_in_len, leaf_nodes_in)
-    test_log_array(leaf_nodes_out_len, leaf_nodes_out)
-
     # initialize dict
     let tree_update_dict : DictAccess* = dict_new()
 
     # write the initial values to dict
-    let (tree_update_dict : DictAccess*) = array_write_to_dict(
+    let (tree_update_dict : DictAccess*) = _array_write_to_dict(
         tree_update_dict, indexes_len, indexes, leaf_nodes_in_len, leaf_nodes_in
     )
     let dict_start = tree_update_dict
 
     # update the input leaf nodes with the output leaf nodes
-    let (tree_update_dict : DictAccess*) = array_update_dict(
+    let (tree_update_dict : DictAccess*) = _array_update_dict(
         tree_update_dict,
         indexes_len,
         indexes,
@@ -173,10 +170,39 @@ func _check_merkle_tree_updates_internal{output_ptr, pedersen_ptr : HashBuiltin*
         finalized_dict_start, num_updates, TREE_DEPTH, prev_root, new_root
     )
 
+    %{ print("merkle tree update is valid") %}
+
     return ()
 end
 
-func array_write_to_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func update_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    update_dict : DictAccess*,
+    indexes_len : felt,
+    indexes : felt*,
+    prev_arr_len : felt,
+    prev_arr : felt*,
+    new_arr_len : felt,
+    new_arr : felt*,
+) -> (dict_start : DictAccess*, update_dict : DictAccess*):
+    let (prev_arr_len : felt, prev_arr : felt*) = pad_array(prev_arr_len, prev_arr, indexes_len, 0)
+    let (leaf_nodes_out_len : felt, leaf_nodes_out : felt*) = pad_array(
+        leaf_nodes_out_len, leaf_nodes_out, indexes_len, 0
+    )
+
+    let (update_dict : DictAccess*) = _array_write_to_dict(
+        update_dict, indexes_len, indexes, prev_arr_len, prev_arr
+    )
+
+    let dict_start = update_dict
+
+    let (update_dict : DictAccess*) = _array_update_dict(
+        update_dict, indexes_len, indexes, prev_arr_len, prev_arr, new_arr_len, new_arr
+    )
+
+    return (dict_start, update_dict)
+end
+
+func _array_write_to_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     my_dict : DictAccess*, indexes_len : felt, indexes : felt*, arr_len : felt, arr : felt*
 ) -> (my_dict : DictAccess*):
     alloc_locals
@@ -190,10 +216,10 @@ func array_write_to_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_pt
 
     dict_write{dict_ptr=my_dict}(index, value)
 
-    return array_write_to_dict(my_dict, indexes_len - 1, &indexes[1], arr_len - 1, &arr[1])
+    return _array_write_to_dict(my_dict, indexes_len - 1, &indexes[1], arr_len - 1, &arr[1])
 end
 
-func array_update_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func _array_update_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     my_dict : DictAccess*,
     indexes_len : felt,
     indexes : felt*,
@@ -214,7 +240,7 @@ func array_update_dict{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}
 
     dict_update{dict_ptr=my_dict}(index, prev_v, new_v)
 
-    return array_update_dict(
+    return _array_update_dict(
         my_dict,
         indexes_len - 1,
         &indexes[1],

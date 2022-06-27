@@ -23,3 +23,16 @@ struct Note:
     member blinding_factor : felt
     member index : felt
 end
+
+func concat_arrays{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    arr1_len : felt, arr1 : felt*, arr2_len : felt, arr2 : felt*
+) -> (arr_len : felt, arr : felt*):
+    alloc_locals
+    if arr2_len == 0:
+        return (arr1_len, arr1)
+    end
+
+    assert arr1[arr1_len] = arr2[0]
+
+    return concat_arrays(arr1_len + 1, arr1, arr2_len - 1, &arr2[1])
+end

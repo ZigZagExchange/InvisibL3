@@ -1,4 +1,4 @@
-%builtins output pedersen range_check
+# %builtins output pedersen range_check
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -21,7 +21,7 @@ from helpers.utils import Note
 from helpers.verify_commitments import verify_commitments
 from helpers.verify_sums import verify_sums
 from signatures.return_signature import verify_ret_addr_sig
-from tx_hash.tx_hash import hash_transaction
+from transactions.tx_hash.tx_hash import hash_transaction
 from signatures.signatures import verify_sig
 from merkle_updates.merkle_updates import validate_merkle_updates
 
@@ -49,9 +49,7 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     # indexes in the merkle tree
     local indexes_len : felt
     local indexes : felt*
-    # Input notes  (NOTE: these could be replaced with arrays of addresses, amounts, blindings, ...)
-    # local notes_in_len : felt
-    # local notes_in : Note*
+    # Input notes
     local amounts_in_len : felt
     local amounts_in : felt*
     local blindings_in_len : felt
@@ -60,8 +58,6 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     local addresses_in : EcPoint*
 
     # output notes
-    # local notes_out_len : felt
-    # local notes_out : Note*
     local amounts_out_len : felt
     local amounts_out : felt*
     local blindings_out_len : felt
@@ -155,6 +151,75 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     %{ print("all good" ) %}
 
     return ()
+end
+
+func verify_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    token_spent : felt,
+    token_spent_price : felt,
+    token_received : felt,
+    token_received_price : felt,
+    return_address : EcPoint,
+    signature_len : felt,
+    signature : felt*,
+    ret_addr_sig_c : felt,
+    ret_addr_sig_r : felt,
+    amounts_in_len : felt,
+    amounts_in : felt*,
+    blindings_in_len : felt,
+    blindings_in : felt*,
+    addresses_in_len : felt,
+    addresses_in : EcPoint*,
+    amounts_out_len : felt,
+    amounts_out : felt*,
+    blindings_out_len : felt,
+    blindings_out : felt*,
+    addresses_out_len : felt,
+    addresses_out : EcPoint*,
+) -> (
+    leaf_nodes_in_len : felt,
+    leaf_nodes_in : felt*,
+    leaf_nodes_out_len : felt,
+    leaf_nodes_out : felt*,
+):
+    alloc_locals
+
+    # # verify_commitments()
+    let (ret_tx_hash : felt) = hash2{hash_ptr=pedersen_ptr}(token_received, token_received_price)
+    verify_ret_addr_sig(return_address, ret_tx_hash, ret_addr_sig_c, ret_addr_sig_r)
+
+    let (
+        tx_hash : felt,
+        leaf_nodes_in_len : felt,
+        leaf_nodes_in : felt*,
+        leaf_nodes_out_len : felt,
+        leaf_nodes_out : felt*,
+    ) = hash_transaction(
+        amounts_in_len,
+        amounts_in,
+        blindings_in_len,
+        blindings_in,
+        addresses_in_len,
+        addresses_in,
+        amounts_out_len,
+        amounts_out,
+        blindings_out_len,
+        blindings_out,
+        addresses_out_len,
+        addresses_out,
+        token_spent,
+        token_spent_price,
+        ret_addr_sig_r,
+    )
+
+    verify_sig(
+        addresses_in_len, addresses_in, tx_hash, signature[0], signature_len - 1, &signature[1]
+    )
+
+    verify_sums(amounts_in_len, amounts_in, amounts_out_len, amounts_out)
+
+    %{ print("transaction verified" ) %}
+
+    return (leaf_nodes_in_len, leaf_nodes_in, leaf_nodes_out_len, leaf_nodes_out)
 end
 
 # this two functions will be deprecated when replacing notes with (amounts, blindings, addresses, ...)

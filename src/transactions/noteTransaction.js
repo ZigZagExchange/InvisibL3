@@ -110,8 +110,6 @@ module.exports = class NoteTransaction {
     let rs = signature.slice(1);
     let tx_hash = this.hashTransaction();
 
-    console.log("-->tx_hash: <-- ", tx_hash);
-
     let c_input = [tx_hash];
 
     let c_split = splitUint256(c);
@@ -182,6 +180,32 @@ module.exports = class NoteTransaction {
     } else if (Ko.length === 3) {
       Ko = Secp256k1.JtoA(Ko);
     }
+
+    // console.log("real ret addr: ", [
+    //   split(Ko[0].toString()),
+    //   split(Ko[1].toString()),
+    // ]);
+
+    // let Ko_test = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
+    // Ko_test = Secp256k1.JtoA(Ko_test);
+
+    // console.log("test ret addr: ", [
+    //   split(Ko[0].toString()),
+    //   split(Ko[1].toString()),
+    // ]);
+
+    // "return_address":  [
+    //   [
+    //     55366164366092580608810537n,
+    //     1384417150111043912878209n,
+    //     11384973460981832402563477n
+    //   ],
+    //   [
+    //     57483649251479564406782230n,
+    //     60880056682032708551906119n,
+    //     7067164297990608431665324n
+    //   ]
+    // ]
 
     let c_split = splitUint256(c);
     let c_trimmed = c_split.high + c_split.low;
@@ -438,28 +462,24 @@ module.exports = class NoteTransaction {
   //! DEPRECATED ===============================================================
 
   //* LOGGING ==================================================================
-  logTransaction(retAddrSig, sig) {
-    let indexes = [];
+  logTransaction(retAddrSig, sig, postfix = "") {
     let addresses_in = [];
 
     for (let i = 0; i < this.notesIn.length; i++) {
       const note = this.notesIn[i];
 
-      indexes.push(note.index);
       addresses_in.push(note.address);
     }
-
-    console.log('"indexes": ', indexes);
-    console.log(',"token_spent": ', this.tokenSpent);
-    console.log(',"token_spent_price": ', this.tokenSpentPrice);
-    console.log(',"token_received": ', this.tokenReceived);
-    console.log(',"token_received_price": ', this.tokenReceivedPrice);
+    console.log(`,"token_spent${postfix}": `, this.tokenSpent);
+    console.log(`,"token_spent_price${postfix}": `, this.tokenSpentPrice);
+    console.log(`,"token_received${postfix}": `, this.tokenReceived);
+    console.log(`,"token_received_price${postfix}": `, this.tokenReceivedPrice);
 
     // ===============================================
-    console.log(',"amounts_in": ', this.amountsIn);
-    console.log(',"blindings_in": ', this.blindingsIn);
+    console.log(`,"amounts_in${postfix}": `, this.amountsIn);
+    console.log(`,"blindings_in${postfix}": `, this.blindingsIn);
     console.log(
-      ',"addresses_in": ',
+      `,"addresses_in${postfix}": `,
       addresses_in.map((addr) => {
         addr = Secp256k1.JtoA(addr);
         return [split(addr[0]), split(addr[1])];
@@ -474,10 +494,10 @@ module.exports = class NoteTransaction {
       addresses_out.push(note.address);
     }
 
-    console.log(',"amounts_out": ', this.amountsOut);
-    console.log(',"blindings_out": ', this.blindingsOut);
+    console.log(`,"amounts_out${postfix}": `, this.amountsOut);
+    console.log(`,"blindings_out${postfix}": `, this.blindingsOut);
     console.log(
-      ',"addresses_out": ',
+      `,"addresses_out${postfix}": `,
       addresses_out.map((addr) => {
         addr = Secp256k1.JtoA(addr);
         return [split(addr[0]), split(addr[1])];
@@ -486,9 +506,9 @@ module.exports = class NoteTransaction {
     // ======
     let Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
     Ko = Secp256k1.JtoA(Ko);
-    console.log(',"return_address": ', [split(Ko[0]), split(Ko[1])]);
-    console.log(',"ret_addr_sig": ', retAddrSig);
-    console.log(',"signature": ', sig);
+    console.log(`,"return_address${postfix}": `, [split(Ko[0]), split(Ko[1])]);
+    console.log(`,"ret_addr_sig${postfix}": `, retAddrSig);
+    console.log(`,"signature${postfix}": `, sig);
   }
 
   logVerifySignature(sig) {

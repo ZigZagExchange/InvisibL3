@@ -7,6 +7,7 @@ const H = require("../../circomlib/src/babyjub.js").Base8;
 const randomBigInt = require("random-bigint");
 const bigInt = require("big-integer");
 
+const Secp256k1 = require("@enumatech/secp256k1-js");
 const Note = require("../notes/noteUtils.js").Note;
 const noteUtils = require("../notes/noteUtils.js");
 const Transaction = require("ethereumjs-tx");
@@ -97,6 +98,7 @@ module.exports = class Swap {
     }
   }
 
+  // DEPRECATED =============
   signCorrectSwapQuotesCmtz(
     takerAmount,
     makerAmount,
@@ -167,70 +169,10 @@ module.exports = class Swap {
       console.log("swap quote signature verified");
     }
   }
+  // DEPRECATED =============
 
   logSwap(returnSigA, signatureA, returnSigB, signatureB) {
-    console.log(
-      ",notesIn_A: ",
-      this.takerTx.notesIn.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
-    );
-    console.log(
-      ",notesOut_A: ",
-      this.takerTx.notesOut.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
-    );
-    console.log(",tokenSpent_A: ", this.takerTx.tokenSpent);
-    console.log(",tokenSpentPrice_A: ", this.takerTx.tokenSpentPrice);
-    console.log(",tokenReceived_A: ", this.takerTx.tokenReceived);
-    console.log(",tokenReceivedPrice_A: ", this.takerTx.tokenReceivedPrice);
-    console.log(",amountsIn_A: ", this.takerTx.amountsIn);
-    console.log(",amountsOut_A: ", this.takerTx.amountsOut);
-    console.log(",blindingsIn_A: ", this.takerTx.blindingsIn);
-    console.log(",blindingsOut_A: ", this.takerTx.blindingsOut);
-    console.log(",returnAddressSig_A: ", returnSigA);
-    console.log(",signature_A: ", signatureA);
-
-    // console.log("\n=======================================================\n");
-
-    console.log(
-      ",notesIn_B: ",
-      this.makerTx.notesIn.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
-    );
-    console.log(
-      ",notesOut_B: ",
-      this.makerTx.notesOut.map((note) => [
-        note.index,
-        note.address[0],
-        note.address[1],
-        note.token,
-        note.commitment,
-      ])
-    );
-    console.log(",tokenSpent_B: ", this.makerTx.tokenSpent);
-    console.log(",tokenSpentPrice_B: ", this.makerTx.tokenSpentPrice);
-    console.log(",tokenReceived_B: ", this.makerTx.tokenReceived);
-    console.log(",tokenReceivedPrice_B: ", this.makerTx.tokenReceivedPrice);
-    console.log(",amountsIn_B: ", this.makerTx.amountsIn);
-    console.log(",amountsOut_B: ", this.makerTx.amountsOut);
-    console.log(",blindingsIn_B: ", this.makerTx.blindingsIn);
-    console.log(",blindingsOut_B: ", this.makerTx.blindingsOut);
-    console.log(",returnAddressSig_B: ", returnSigB);
-    console.log(",signature_B: ", signatureB);
+    this.takerTx.logTransaction(returnSigA, signatureA, "_A");
+    this.makerTx.logTransaction(returnSigB, signatureB, "_B");
   }
 };
