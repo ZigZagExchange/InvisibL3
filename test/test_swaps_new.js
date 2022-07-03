@@ -249,6 +249,7 @@ function update_state(notes_in, notes_out) {
 
   let prev_root = tree.root;
 
+  // PREVIOUS STATE ==================================================
   let proofs_in = [];
   let preimages_in = [];
   for (let i = 0; i < notes_in.length; i++) {
@@ -274,6 +275,7 @@ function update_state(notes_in, notes_out) {
     preimages_in.push(multiUpdateProof);
   }
 
+  // UPDATES ==========================================================
   for (let i = 0; i < notes_out.length; i++) {
     tree.updateNode(notes_out[i].hash, indexes[i], proofs_in[i]);
 
@@ -291,6 +293,7 @@ function update_state(notes_in, notes_out) {
     }
   }
 
+  // NEXT STATE ======================================================
   let preimages_out = [];
   for (let i = 0; i < notes_out.length; i++) {
     let proof = tree.getProof(indexes[i]); //(notes_out[i].index);
@@ -312,6 +315,8 @@ function update_state(notes_in, notes_out) {
     proofs_out.push(proof.proof);
     preimages_out.push(multiUpdateProof);
   }
+
+  // PREIMAGES DICTIONARY ============================================
 
   let preimage = {};
   for (let i = 0; i < preimages_in.length; i++) {

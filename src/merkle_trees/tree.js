@@ -2,8 +2,11 @@ const treeUtils = require("./treeUtils.js");
 const { pedersen } = require("starknet/utils/hash");
 
 module.exports = class Tree {
-  constructor(_leafNodes, depth = treeUtils.getBase2Log(_leafNodes.length)) {
-    this.leafNodes = treeUtils.padArrayEnd(_leafNodes, 8, 0);
+  constructor(
+    _leafNodes,
+    depth = Math.ceil(treeUtils.getBase2Log(_leafNodes.length))
+  ) {
+    this.leafNodes = treeUtils.padArrayEnd(_leafNodes, 2 ** depth, 0);
     this.depth = depth;
     this.innerNodes = this.treeFromLeafNodes();
     this.root = this.innerNodes[0][0];

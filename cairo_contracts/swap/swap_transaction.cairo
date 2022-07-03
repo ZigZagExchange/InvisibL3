@@ -361,6 +361,12 @@ func verify_swap{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(ith :
         &indexes,
     )
 
+    # todo: could be replaced by just inputing A token inputs into both verify_transaction
+    assert token_received_A = token_spent_B
+    assert token_received_price_A = token_spent_price_B
+    assert token_spent_A = token_received_B
+    assert token_spent_price_A = token_received_price_B
+
     # * Validate taker transaction =======
 
     let (

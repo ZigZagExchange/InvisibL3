@@ -18,7 +18,7 @@ from starkware.cairo.common.hash_state import (
 )
 
 from helpers.utils import Note
-from dummy.tests import test_log_array
+# from dummy.tests import test_log_array
 
 const TREE_DEPTH = 3
 
@@ -152,16 +152,16 @@ func validate_merkle_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_chec
     )
 
     # finalize the dict
-    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
+    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr}(
         dict_start, tree_update_dict
     )
 
-    _check_merkle_tree_updates_internal(prev_root, new_root, finalized_dict_start, indexes_len)
+    check_merkle_tree_updates(prev_root, new_root, finalized_dict_start, indexes_len)
 
     return ()
 end
 
-func _check_merkle_tree_updates_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func check_merkle_tree_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     prev_root : felt, new_root : felt, finalized_dict_start : DictAccess*, num_updates : felt
 ):
     alloc_locals
