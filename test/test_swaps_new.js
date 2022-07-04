@@ -113,9 +113,9 @@ async function testSwap() {
 
   // User A wants to swap X amount of token 1 to token 2 with B
   const TOKEN_X = 1;
-  const TOKEN_X_PRICE = tokenData[TOKEN_X];
+  const TOKEN_X_AMOUNT = tokenData[TOKEN_X];
   const TOKEN_Y = 2;
-  const TOKEN_Y_PRICE = tokenData[TOKEN_Y];
+  const TOKEN_Y_AMOUNT = tokenData[TOKEN_Y];
   const X_AMOUNT = 1_534_450_000n; //1.534 eth
 
   const outNoteDataA = userA.generateOutputNotes(
@@ -127,24 +127,28 @@ async function testSwap() {
   );
 
   const txA = new NoteTransaction(
+    0,
+    1000,
+    10,
     outNoteDataA.notesIn,
     outNoteDataA.notesOut,
     outNoteDataA.amountsIn,
     outNoteDataA.amountsOut,
     outNoteDataA.blindingsIn,
     outNoteDataA.blindingsOut,
+    [],
+    [],
     TOKEN_X,
-    TOKEN_X_PRICE,
+    TOKEN_X_AMOUNT,
     TOKEN_Y,
-    TOKEN_Y_PRICE,
+    TOKEN_Y_AMOUNT,
     subaddressA.Ksi,
     subaddressA.Kvi,
     tx_r
   );
 
-  let subPrivKeysA = userA.subaddressPrivKeys(1);
-  let ko = oneTimeAddressPrivKey(subaddressA.Kvi, subPrivKeysA.ksi, tx_r); // ith subaddress private key
-  let retAddrSigA = txA.signReturnAddressSig(ko);
+  // let subPrivKeysA = userA.subaddressPrivKeys(1);
+  // let ko = oneTimeAddressPrivKey(subaddressA.Kvi, subPrivKeysA.ksi, tx_r); // ith subaddress private key
 
   // let KoA = generateOneTimeAddress(subaddressA.Kvi, subaddressA.Ksi, tx_r);
   // txA.verifyRetAddrSig(retAddrSigA, KoA);
@@ -154,17 +158,9 @@ async function testSwap() {
 
   // txA.logTransaction(retAddrSigA, sigA);
 
-  // let { preimage, prev_root, new_root, indexes } = update_state(
-  //   outNoteDataA.notesIn,
-  //   outNoteDataA.notesOut
-  // );
-  // console.log(',"preimage":', preimage);
-  // console.log(',"prev_root":', prev_root);
-  // console.log(',"new_root":', new_root);
-
   //* ======================================================================================
 
-  let res = userB.calculateAmounts(X_AMOUNT, TOKEN_X_PRICE, TOKEN_Y_PRICE);
+  let res = userB.calculateAmounts(X_AMOUNT, TOKEN_X_AMOUNT, TOKEN_Y_AMOUNT);
   let Y_AMOUNT = res.outputAmount;
   const outNoteDataB = userB.generateOutputNotes(
     Y_AMOUNT,
@@ -175,27 +171,25 @@ async function testSwap() {
   );
 
   const txB = new NoteTransaction(
+    1,
+    1000,
+    10,
     outNoteDataB.notesIn,
     outNoteDataB.notesOut,
     outNoteDataB.amountsIn,
     outNoteDataB.amountsOut,
     outNoteDataB.blindingsIn,
     outNoteDataB.blindingsOut,
+    [],
+    [],
     TOKEN_Y,
-    TOKEN_Y_PRICE,
+    TOKEN_Y_AMOUNT,
     TOKEN_X,
-    TOKEN_X_PRICE,
+    TOKEN_X_AMOUNT,
     subaddressB.Ksi,
     subaddressB.Kvi,
     tx_r
   );
-
-  let subPrivKeysB = userB.subaddressPrivKeys(1); // ith subaddress private keys
-  let koB = oneTimeAddressPrivKey(subaddressB.Kvi, subPrivKeysB.ksi, tx_r);
-  const retAddrSigB = txB.signReturnAddressSig(koB);
-
-  // let KoB = generateOneTimeAddress(subaddressB.Kvi, subaddressB.Ksi, tx_r);
-  // txB.verifyRetAddrSig(retAddrSigB, KoB);
 
   const sigB = txB.signTx(outNoteDataB.kosIn);
   // txB.verifySig(sigB);
@@ -204,32 +198,23 @@ async function testSwap() {
 
   const swap = new Swap(txA, txB);
 
-  swap.verify(
-    retAddrSigA,
-    sigA,
-    retAddrSigB,
-    sigB,
-    TOKEN_X,
-    TOKEN_X_PRICE,
-    TOKEN_Y,
-    TOKEN_Y_PRICE
-  );
+  swap.verify(sigA, sigB, TOKEN_X, TOKEN_X_AMOUNT, TOKEN_Y, TOKEN_Y_AMOUNT);
 
-  swap.logSwap(retAddrSigA, sigA, retAddrSigB, sigB);
+  swap.logSwap(sigA, sigB);
 
-  let notesIn = outNoteDataA.notesIn.concat(outNoteDataB.notesIn);
-  let notesOut = outNoteDataA.notesOut.concat(outNoteDataB.notesOut);
+  // let notesIn = outNoteDataA.notesIn.concat(outNoteDataB.notesIn);
+  // let notesOut = outNoteDataA.notesOut.concat(outNoteDataB.notesOut);
 
-  let { preimage, prev_root, new_root, indexes } = update_state(
-    notesIn,
-    notesOut
-  );
+  // let { preimage, prev_root, new_root, indexes } = update_state(
+  //   notesIn,
+  //   notesOut
+  // );
 
-  console.log(",indexes:", indexes);
+  // console.log(",indexes:", indexes);
 
-  console.log(',"preimage":', preimage);
-  console.log(',"prev_root":', prev_root);
-  console.log(',"new_root":', new_root);
+  // console.log(',"preimage":', preimage);
+  // console.log(',"prev_root":', prev_root);
+  // console.log(',"new_root":', new_root);
 }
 
 function update_state(notes_in, notes_out) {

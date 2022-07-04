@@ -88,7 +88,7 @@ func execute_transaction{
         signature_s=limit_order.signature_s,
     )
 
-    %{ print("transaction verified") %}
+    # %{ print("transaction verified") %}
 
     # todo verify limit order signature
     # todo if partial order only update by that amount

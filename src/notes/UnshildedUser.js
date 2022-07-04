@@ -133,7 +133,11 @@ class AccountSpace {
   }
 
   logAccountSpace() {
-    console.log(this.index, ": ", [this.pubKey, this.token, this.balance]);
+    console.log(",", '"' + this.index + '": ', [
+      this.pubKey,
+      this.token,
+      this.balance,
+    ]);
   }
 }
 

@@ -18,52 +18,185 @@ const {
   splitUint256,
   trimHash,
 } = require("../notes/noteUtils.js");
+const {
+  getKeyPair,
+  getStarkKey,
+  getKeyPairFromPublicKey,
+  sign,
+  verify,
+} = require("starknet/utils/ellipticCurve");
 
 const P = 2n ** 251n + 2n ** 192n + 1n;
 
 const NUM_NOTES = 3;
 
 module.exports = class NoteTransaction {
+  // nonce,
+  // public_key,
+  // expiration_timestamp,
+  // token_spent,
+  // token_received,
+  // amount_spent,
+  // amount_received,
+  // spender_account_idx,
+  // receiver_account_idx,
+  // fee_limit
+
   constructor(
+    nonce,
+    expiration_timestamp,
+    fee_limit,
     notesIn,
     notesOut,
     amountsIn,
     amountsOut,
     blindingsIn,
     blindingsOut,
+    notesInIndexes,
+    notesOutIndexes,
     tokenSpent, // (the token that is being sent)
-    tokenSpentPrice,
+    spentAmount,
     tokenReceived, // (the token that is being received)
-    tokenReceivedPrice,
+    receivedAmount,
     Ksi,
     Kvi,
-    tx_r,
-    rG = 0, // used to reveal the values sent to the recipient   (might just use r and send rG and rKsi on chain)
-    rKsis = [] // used to find notes sent to the recipient
+    tx_r
+    // rG = 0, // used to reveal the values sent to the recipient   (might just use r and send rG and rKsi on chain)
+    // rKsis = [] // used to find notes sent to the recipient
   ) {
-    // PUBLIC INPUTS:
+    this.nonce = nonce;
+    this.expiration_timestamp = expiration_timestamp;
+    this.fee_limit = fee_limit;
+    // INPUT NOTES:
     this.notesIn = notesIn;
-    this.notesOut = notesOut;
-    this.return_sig_r = null; //used to make sure the user recived the trade to the right address
-    this.tokenSpent = tokenSpent;
-    this.tokenSpentPrice = tokenSpentPrice;
-
-    this.tx_hash = null;
-
-    //PRIVATE INPUTS:  (still shared with exchange or market maker)
-
-    this.tokenReceived = tokenReceived;
-    this.tokenReceivedPrice = tokenReceivedPrice;
     this.amountsIn = amountsIn;
-    this.amountsOut = amountsOut;
     this.blindingsIn = blindingsIn;
+    this.indexesIn = notesInIndexes;
+
+    // OUTPUT NOTES:
+    this.notesOut = notesOut;
+    this.amountsOut = amountsOut;
     this.blindingsOut = blindingsOut;
+    this.indexesOut = notesOutIndexes;
+
+    // TOKENS AND AMOUNTS
+    this.tokenSpent = tokenSpent;
+    this.spentAmount = spentAmount;
+    this.tokenReceived = tokenReceived;
+    this.receivedAmount = receivedAmount;
+
+    // RETURN ADDRESS
     this.Ksi = Ksi; // the ith subbaddress spend key
     this.Kvi = Kvi; // the ith subbaddress view key
     this.tx_r = tx_r;
   }
 
   //* MODIFIED ===============================================================
+
+  signTransaction(priv_keys) {
+    let tx_hash = this.hashTransaction();
+
+    let signatures = [];
+    for (let i = 0; i < priv_keys.length; i++) {
+      const keyPair = getKeyPair(priv_keys[i]);
+
+      let sig = sign(keyPair, tx_hash.toString(16));
+      signatures.push(sig);
+    }
+
+    return signatures;
+  }
+
+  verifySignatures(signatures, keyPairs) {
+    let tx_hash = this.hashTransaction();
+
+    for (let i = 0; i < signatures.length; i++) {
+      const sig = signatures[i];
+      let keyPair = keyPairs[i];
+      verify(keyPair, tx_hash.toString(16), sig);
+    }
+
+    console.log("signatures verified");
+  }
+
+  // Helpers
+  hashTransaction() {
+    // ===================================================
+    // hash input notes
+    let hashes_in = [];
+    for (let i = 0; i < this.notesIn.length; i++) {
+      const hash = this.notesIn[i].hash;
+
+      if (this.notesIn[i].token !== this.tokenSpent) {
+        throw "token missmatch";
+      }
+      hashes_in.push(hash);
+    }
+    // ===================================================
+    // hash output notes
+    let hashes_out = [];
+    for (let i = 0; i < this.notesOut.length; i++) {
+      const hash = this.notesOut[i].hash;
+
+      if (this.notesOut[i].token !== this.tokenSpent) {
+        throw "token missmatch";
+      }
+
+      hashes_out.push(hash);
+    }
+    // ===================================================
+
+    let hash_input = hashes_in
+      .concat(hashes_out)
+      .concat([
+        this.nonce,
+        this.expiration_timestamp,
+        this.fee_limit,
+        this.tokenSpent,
+        this.spentAmount,
+        this.tokenReceived,
+        this.receivedAmount,
+      ]);
+
+    return BigInt(computeHashOnElements(hash_input), 16);
+  }
+
+  verifySums() {
+    let inputSum = 0n;
+    let outputSum = 0n;
+
+    for (let i = 0; i < this.notesIn.length; i++) {
+      const note = this.notesIn[i];
+
+      let comm = pedersen([this.amountsIn[i], this.blindingsIn[i]]);
+
+      if (note.commitment !== comm) {
+        throw "amount or blinding missmatch in input notes";
+      }
+
+      inputSum += this.amountsIn[i];
+    }
+
+    for (let i = 0; i < this.notesOut.length; i++) {
+      const note = this.notesOut[i];
+
+      let comm = pedersen([this.amountsOut[i], this.blindingsOut[i]]);
+
+      if (note.commitment !== comm) {
+        throw "amount or blinding missmatch in output notes";
+      }
+
+      outputSum += this.amountsOut[i];
+    }
+
+    if (inputSum != outputSum) {
+      throw "outputs sum is not equal to the inputs sum";
+    }
+  }
+
+  //* MODIFIED ===============================================================
+
+  //! DEPRECATED ===============================================================
 
   signTx(priv_keys) {
     let tx_hash = this.hashTransaction();
@@ -181,32 +314,6 @@ module.exports = class NoteTransaction {
       Ko = Secp256k1.JtoA(Ko);
     }
 
-    // console.log("real ret addr: ", [
-    //   split(Ko[0].toString()),
-    //   split(Ko[1].toString()),
-    // ]);
-
-    // let Ko_test = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
-    // Ko_test = Secp256k1.JtoA(Ko_test);
-
-    // console.log("test ret addr: ", [
-    //   split(Ko[0].toString()),
-    //   split(Ko[1].toString()),
-    // ]);
-
-    // "return_address":  [
-    //   [
-    //     55366164366092580608810537n,
-    //     1384417150111043912878209n,
-    //     11384973460981832402563477n
-    //   ],
-    //   [
-    //     57483649251479564406782230n,
-    //     60880056682032708551906119n,
-    //     7067164297990608431665324n
-    //   ]
-    // ]
-
     let c_split = splitUint256(c);
     let c_trimmed = c_split.high + c_split.low;
 
@@ -234,42 +341,6 @@ module.exports = class NoteTransaction {
     }
   }
 
-  // Helpers
-  hashTransaction() {
-    let return_sig_r = this.return_sig_r;
-
-    // ===================================================
-    // hash input notes
-    let hashes_in = [];
-    for (let i = 0; i < this.notesIn.length; i++) {
-      const hash = this.notesIn[i].hash;
-
-      if (this.notesIn[i].token !== this.tokenSpent) {
-        throw "token missmatch";
-      }
-      hashes_in.push(hash);
-    }
-    // ===================================================
-    // hash output notes
-    let hashes_out = [];
-    for (let i = 0; i < this.notesOut.length; i++) {
-      const hash = this.notesOut[i].hash;
-
-      if (this.notesOut[i].token !== this.tokenSpent) {
-        throw "token missmatch";
-      }
-
-      hashes_out.push(hash);
-    }
-    // ===================================================
-
-    let hash_input = hashes_in
-      .concat(hashes_out)
-      .concat([this.tokenSpent, this.tokenSpentPrice, return_sig_r]);
-
-    return BigInt(computeHashOnElements(hash_input), 16);
-  }
-
   hashPrivInputs(tokenReceived, tokenReceivedPrice) {
     //TODO: Add amount and blinding to the signature
 
@@ -279,203 +350,30 @@ module.exports = class NoteTransaction {
     return pedersen([tokenReceived, tokenReceivedPrice]);
   }
 
-  verifySums() {
-    let inputSum = 0n;
-    let outputSum = 0n;
-
-    for (let i = 0; i < this.notesIn.length; i++) {
-      const note = this.notesIn[i];
-
-      let comm = pedersen([this.amountsIn[i], this.blindingsIn[i]]);
-
-      if (note.commitment !== comm) {
-        throw "amount or blinding missmatch in input notes";
-      }
-
-      inputSum += this.amountsIn[i];
-    }
-
-    for (let i = 0; i < this.notesOut.length; i++) {
-      const note = this.notesOut[i];
-
-      let comm = pedersen([this.amountsOut[i], this.blindingsOut[i]]);
-
-      if (note.commitment !== comm) {
-        throw "amount or blinding missmatch in output notes";
-      }
-
-      outputSum += this.amountsOut[i];
-    }
-
-    if (inputSum != outputSum) {
-      throw "outputs sum is not equal to the inputs sum";
-    }
-  }
-
-  //* MODIFIED ===============================================================
-
-  //! DEPRECATED ===============================================================
-
-  signPrivateReturnAddress_deprecated(privSpendKey) {
-    // using this as a Fiat-Shamir heuristic
-    let hash = this.hashPrivateInputs();
-
-    const ko = oneTimeAddressPrivKey(this.Kvi, privSpendKey, this.tx_r);
-
-    let alpha = randomBigInt(240);
-    let aG = ecMul(G, alpha);
-
-    let c = poseidon([hash, aG[0], aG[1]]);
-
-    let c_trimed = trimHash(c, 240);
-
-    const r = alpha + ko - c_trimed;
-
-    this.return_sig_r = r;
-
-    if (r < 0) {
-      throw "Should set k to 240 bits so r is positive";
-    }
-
-    return [c, r];
-  }
-
-  signTransaction_deprecated(note_priv_keys) {
-    // Currently only supports max 6 notes per transaction (14 inputs, one is the msg_hash)
-    if (note_priv_keys.length > NUM_NOTES) {
-      throw "currently max NUM_NOTES notes per transaction allowed";
-    }
-
-    let tx_hash = this.hashTransaction();
-    let alphas = [];
-    let c_input = [tx_hash];
-
-    //?  c = H(tx_hash, aG)
-    for (let i = 0; i < NUM_NOTES; i++) {
-      if (i >= note_priv_keys.length) {
-        c_input.push(0n);
-        c_input.push(1n);
-        alphas.push(0n);
-      } else {
-        let alpha = randomBigInt(240);
-        alphas.push(alpha);
-        let aG = ecMul(G, alpha);
-        c_input.push(aG[0]);
-        c_input.push(aG[1]);
-      }
-    }
-
-    let c = poseidon(c_input);
-
-    //? ri = a - k + c
-    let sig = [c];
-    for (let i = 0; i < NUM_NOTES; i++) {
-      if (i >= note_priv_keys.length) {
-        sig.push(c);
-      } else {
-        let r = alphas[i] - note_priv_keys[i] + c;
-        sig.push(r);
-      }
-    }
-
-    return sig;
-  }
-
-  verifyPrivReturnAddressSig_deprecated(
-    sig,
-    Ko = null,
-    tokenR = null,
-    tokenRPrice = null
-  ) {
-    const c = sig[0];
-    const r = sig[1];
-
-    // using this as a Fiat-Shamir heuristic
-    let hash;
-    if (!tokenR || !tokenRPrice) {
-      hash = this.hashPrivateInputs();
-    } else {
-      hash = poseidon([tokenR, tokenRPrice]);
-    }
-
-    if (!Ko) {
-      Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
-      console.log("Unsafe: Should provide your own Ko");
-    }
-
-    let c_trimed = trimHash(c, 240);
-
-    // c = H(rG - K + cG)
-    const c_input = ecSub(ecAdd(ecMul(G, r), ecMul(G, c_trimed)), Ko);
-
-    const c_prime = poseidon([hash, c_input[0], c_input[1]]);
-
-    if (c_prime !== c) {
-      throw "return address signature verification failed";
-    } else {
-      console.log("return address signature verified");
-    }
-  }
-
-  verifySignature_deprecated(signature) {
-    // Currently only supports max 6 notes per transaction
-    if (this.notesIn.length > NUM_NOTES) {
-      throw "currently max NUM_NOTES notes per transaction allowed";
-    }
-    // if (this.notesIn.length !== signature.length - 1) {
-    //   throw "key and signature lengths missmatch";
-    // }
-
-    let c = signature[0];
-    let rs = signature.slice(1);
-
-    let tx_hash = this.hashTransaction();
-    let c_input = [tx_hash];
-
-    //?  c = H(m, rG + K - c*G)
-
-    for (let i = 0; i < NUM_NOTES; i++) {
-      if (i >= this.notesIn.length) {
-        c_input.push(0n);
-        c_input.push(1n);
-      } else {
-        let rG = ecMul(G, rs[i]);
-        let cG = ecMul(G, c);
-        let rG_plus_K = ecAdd(rG, this.notesIn[i].address);
-        let c_input_i = ecSub(rG_plus_K, cG);
-
-        c_input.push(c_input_i[0]);
-        c_input.push(c_input_i[1]);
-      }
-    }
-    // console.log(c_input);
-
-    let c_prime = poseidon(c_input);
-    if (c_prime !== c) {
-      throw "signature verification failed";
-    } else {
-      console.log("signature verified");
-      // this.logVerifySignature(signature);
-    }
-  }
-
   //! DEPRECATED ===============================================================
 
   //* LOGGING ==================================================================
-  logTransaction(retAddrSig, sig, postfix = "") {
-    let addresses_in = [];
+  logTransaction(sig, postfix = "") {
+    console.log('"nonce": ' + this.nonce);
+    console.log('"expiration_timestamp": ' + this.expiration_timestamp);
+    console.log('"fee_limit": ' + this.fee_limit);
 
+    // ===============================================
+
+    console.log(`,"token_spent${postfix}": `, this.tokenSpent);
+    console.log(`,"token_spent_amount${postfix}": `, this.spentAmount);
+    console.log(`,"token_received${postfix}": `, this.tokenReceived);
+    console.log(`,"token_received_amount${postfix}": `, this.receivedAmount);
+
+    // ===============================================
+
+    let addresses_in = [];
     for (let i = 0; i < this.notesIn.length; i++) {
       const note = this.notesIn[i];
 
       addresses_in.push(note.address);
     }
-    console.log(`,"token_spent${postfix}": `, this.tokenSpent);
-    console.log(`,"token_spent_price${postfix}": `, this.tokenSpentPrice);
-    console.log(`,"token_received${postfix}": `, this.tokenReceived);
-    console.log(`,"token_received_price${postfix}": `, this.tokenReceivedPrice);
 
-    // ===============================================
     console.log(`,"amounts_in${postfix}": `, this.amountsIn);
     console.log(`,"blindings_in${postfix}": `, this.blindingsIn);
     console.log(
@@ -485,7 +383,7 @@ module.exports = class NoteTransaction {
         return [split(addr[0]), split(addr[1])];
       })
     );
-
+    console.log(`,"indexes_in${postfix}": `, this.indexesIn);
     //================================================
 
     let addresses_out = [];
@@ -503,11 +401,11 @@ module.exports = class NoteTransaction {
         return [split(addr[0]), split(addr[1])];
       })
     );
-    // ======
+    console.log(`,"indexes_out${postfix}": `, this.indexesOut);
+    //================================================
     let Ko = generateOneTimeAddress(this.Kvi, this.Ksi, this.tx_r);
     Ko = Secp256k1.JtoA(Ko);
     console.log(`,"return_address${postfix}": `, [split(Ko[0]), split(Ko[1])]);
-    console.log(`,"ret_addr_sig${postfix}": `, retAddrSig);
     console.log(`,"signature${postfix}": `, sig);
   }
 

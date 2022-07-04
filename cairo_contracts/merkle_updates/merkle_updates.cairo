@@ -152,23 +152,34 @@ func validate_merkle_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_chec
     )
 
     # finalize the dict
-    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr}(
-        dict_start, tree_update_dict
-    )
+    let (finalized_dict_start, finalized_dict_end) = dict_squash(dict_start, tree_update_dict)
 
-    check_merkle_tree_updates(prev_root, new_root, finalized_dict_start, indexes_len)
+    check_merkle_tree_updates(prev_root, new_root, finalized_dict_start, indexes_len, TREE_DEPTH)
 
     return ()
 end
 
 func check_merkle_tree_updates{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    prev_root : felt, new_root : felt, finalized_dict_start : DictAccess*, num_updates : felt
+    prev_root : felt,
+    new_root : felt,
+    finalized_dict_start : DictAccess*,
+    num_updates : felt,
+    depth : felt,
 ):
     alloc_locals
 
+    %{
+        import time
+        t1 = time.time()
+    %}
     merkle_multi_update{hash_ptr=pedersen_ptr}(
-        finalized_dict_start, num_updates, TREE_DEPTH, prev_root, new_root
+        finalized_dict_start, num_updates, depth, prev_root, new_root
     )
+
+    %{
+        t2 = time.time()
+        print("merkle validation time:", t2 - t1)
+    %}
 
     %{ print("merkle tree update is valid") %}
 

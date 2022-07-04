@@ -1,9 +1,4 @@
 const poseidon = require("../../circomlib/src/poseidon.js");
-const ecMul = require("../../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
-const G = require("../../circomlib/src/babyjub.js").Generator;
-const H = require("../../circomlib/src/babyjub.js").Base8;
 const randomBigInt = require("random-bigint");
 const bigInt = require("big-integer");
 
@@ -21,81 +16,49 @@ module.exports = class Swap {
   }
 
   verify(
-    //! TAKER INPUTS
-    // ...takerTx.inputs,
-    returnSigA,
     signatureA,
-    //! MAKER INPUTS
-    // ...makerTx.inputs,
-    returnSigB,
     signatureB,
-    //! SWAP INPUTS
     //? Could just be replaced with the takerTx and makerTx prices
     tokenX, // taker token out —> sent to the maker  (spent token)
-    tokenXPrice,
+    tokenXAmount,
     tokenY, // maker token out  —> sent to the taker  (received token)
-    tokenYPrice
-    // pos,   // used for the commitmnt to zero
-    // swapQuoteSig // swap quote signature
+    tokenYAmount
   ) {
     //* TAKER TRANSACTION:
 
-    //? Verify signatures for public keys and comms to zero
-
-    this.takerTx.verifyRetAddrSig(
-      returnSigA,
-      this.makerTx.notesOut[0].address,
-      tokenY,
-      tokenYPrice
-    );
-
-    //? Verify signature for retrun address
     this.takerTx.verifySig(signatureA);
-
-    //? Verify sum of inputs == sum of outputs
     this.takerTx.verifySums();
 
     //* MAKER TRANSACTION:
 
-    //? Verify signatures for public keys and comms to zero
-    this.makerTx.verifyRetAddrSig(
-      returnSigB,
-      this.takerTx.notesOut[0].address,
-      tokenX,
-      tokenXPrice
-    );
-
-    //? Verify signature for retrun address
     this.makerTx.verifySig(signatureB);
-
-    //? Verify sum of inputs == sum of outputs
     this.makerTx.verifySums();
 
     //* SWAP VERIFICATIONS:
 
-    //? a*a_price == b*b_price --> (make comm to zero Ca_out1*a_price - Cb_out1*b_price )
-    this.verifyCorrectSwapQuotes(tokenXPrice, tokenYPrice);
+    if (
+      this.takerTx.tokenSpent !== tokenX ||
+      this.takerTx.tokenReceived !== tokenY ||
+      this.makerTx.tokenSpent !== tokenY ||
+      this.makerTx.tokenReceived !== tokenX
+    ) {
+      throw "token types are incorrect";
+    }
+
+    if (
+      this.takerTx.spentAmount !== tokenXAmount ||
+      this.takerTx.receivedAmount !== tokenYAmount ||
+      this.makerTx.spentAmount !== tokenYAmount ||
+      this.makerTx.receivedAmount !== tokenXAmount
+    ) {
+      throw "token amounts are incorrect";
+    }
 
     //* NON_CONSTRAINED (not included in the circuit constraints)
 
-    //? check the maker and taker sent the exchange fee (*and stardust)
-    // TODO ...
+    //Todo check the maker and taker sent the exchange fee (*and stardust)
 
     console.log("swap transaction verified");
-  }
-
-  verifyCorrectSwapQuotes(xPrice, yPrice) {
-    //? For now we assume that only one output note is addressed to the recipient, later this can be up to four
-    let xPx = this.takerTx.amountsOut[0] * xPrice;
-    let yPy = this.makerTx.amountsOut[0] * yPrice;
-
-    let diff = xPx - yPy;
-
-    if ((diff * 10n ** 8n) / xPx > 0) {
-      throw "taker and maker amounts are incorrect";
-    } else {
-      console.log("taker and maker amounts are correct");
-    }
   }
 
   // DEPRECATED =============
@@ -169,10 +132,24 @@ module.exports = class Swap {
       console.log("swap quote signature verified");
     }
   }
+
+  verifyCorrectSwapQuotes_deprecated(xPrice, yPrice) {
+    //? For now we assume that only one output note is addressed to the recipient, later this can be up to four
+    let xPx = this.takerTx.amountsOut[0] * xPrice;
+    let yPy = this.makerTx.amountsOut[0] * yPrice;
+
+    let diff = xPx - yPy;
+
+    if ((diff * 10n ** 8n) / xPx > 0) {
+      throw "taker and maker amounts are incorrect";
+    } else {
+      console.log("taker and maker amounts are correct");
+    }
+  }
   // DEPRECATED =============
 
-  logSwap(returnSigA, signatureA, returnSigB, signatureB) {
-    this.takerTx.logTransaction(returnSigA, signatureA, "_A");
-    this.makerTx.logTransaction(returnSigB, signatureB, "_B");
+  logSwap(signatureA, signatureB) {
+    this.takerTx.logTransaction(signatureA, "_A");
+    this.makerTx.logTransaction(signatureB, "_B");
   }
 };

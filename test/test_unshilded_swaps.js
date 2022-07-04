@@ -29,11 +29,12 @@ function test_swap() {
   let initUserSpaces = account_spaces.map((space) =>
     Object.assign(Object.create(Object.getPrototypeOf(space)), space)
   );
-  console.log(
-    "account_spaces",
-    initUserSpaces.map((acc) => acc.hash),
-    "\n\n"
-  );
+  // console.log('"account_spaces": {');
+  // initUserSpaces.forEach((space) => {
+  //   space.logAccountSpace();
+  // });
+  // console.log("} \n\n");
+
   // =======================================================
 
   // Execute swap and update the state =====================
@@ -63,25 +64,28 @@ function test_swap() {
   // =======================================================
 
   // Log all swaps and the updated state ===================
-  swaps.forEach((swap) => {
-    swap.logSwap();
-  });
+  // swaps.forEach((swap) => {
+  //   swap.logSwap();
+  // });
 
   account_spaces = [];
   users.forEach((user) => {
     account_spaces = account_spaces.concat(user.all_account_spaces());
   });
 
-  let updatedUserSpaces = account_spaces.map((space) =>
-    Object.assign(Object.create(Object.getPrototypeOf(space)), space)
-  );
+  let updatedUserSpaces = account_spaces;
+  // let updatedUserSpaces = account_spaces.map((space) =>
+  //   Object.assign(Object.create(Object.getPrototypeOf(space)), space)
+  // );
   // console.log("\n\n\naccount_spaces", updatedUserSpaces, "\n\n");
   // =======================================================
 
+  console.time("merkle tree time");
   let { preimage, prev_root, new_root } = update_merkle_tree(
     initUserSpaces,
     updatedUserSpaces
   );
+  console.timeEnd("merkle tree time");
 
   console.log(
     ',"preimage": ',
@@ -154,14 +158,14 @@ function update_merkle_tree(prev_acc_spaces, new_acc_spaces) {
   let prev_hashes = prev_acc_spaces.map((space) => space.hash);
   // let new_hashes = new_acc_spaces.map((space) => space.hash);
 
-  let depth = Math.ceil(Math.log2(prev_acc_spaces.length));
+  // let depth = Math.ceil(Math.log2(prev_acc_spaces.length));
+  let depth = 8;
 
   let tree = new Tree(prev_hashes, depth);
 
   let prev_root = tree.root;
 
   // ============================================================
-  console.time("multiUpdateProofsIn");
   let multiUpdateProofsIn = [];
   let proofsIn = [];
   for (let i = 0; i < prev_hashes.length; i++) {
@@ -176,11 +180,9 @@ function update_merkle_tree(prev_acc_spaces, new_acc_spaces) {
       proofsIn.push(proof.proof);
     }
   }
-  console.timeEnd("multiUpdateProofsIn");
 
   // ============================================================
 
-  console.time("tree Updates");
   for (let i = 0; i < new_acc_spaces.length; i++) {
     tree.updateNode(
       new_acc_spaces[i].hash,
@@ -193,11 +195,9 @@ function update_merkle_tree(prev_acc_spaces, new_acc_spaces) {
       proofsIn.push(nextProof.proof);
     }
   }
-  console.timeEnd("tree Updates");
 
   // ============================================================
 
-  console.time("multiUpdateProofsOut");
   let multiUpdateProofsOut = [];
   for (let i = 0; i < new_acc_spaces.length; i++) {
     let proof = tree.getProof(new_acc_spaces[i].index); //(notes_out[i].index);
@@ -209,11 +209,9 @@ function update_merkle_tree(prev_acc_spaces, new_acc_spaces) {
 
     multiUpdateProofsOut.push(multiUpdateProof2);
   }
-  console.timeEnd("multiUpdateProofsOut");
 
   // ============================================================
 
-  console.time("preimage_dict");
   let preimage = {};
   for (let i = 0; i < multiUpdateProofsIn.length; i++) {
     multiUpdateProofsIn[i].forEach((value, key) => {
@@ -225,7 +223,6 @@ function update_merkle_tree(prev_acc_spaces, new_acc_spaces) {
       preimage[key] = value;
     });
   }
-  console.timeEnd("preimage_dict");
 
   return { preimage, prev_root, new_root: tree.root };
 }

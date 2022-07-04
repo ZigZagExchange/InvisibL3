@@ -24,100 +24,100 @@ from unshielded_swaps.constants import MAX_AMOUNT
 from unshielded_swaps.account_state import AccountSpace, LimitOrder, account_space_hash
 from unshielded_swaps.unshielded_tx import execute_transaction
 
-func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
-    ):
-    alloc_locals
+# func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
+#     ):
+#     alloc_locals
 
-    local prev_root : felt
-    local new_root : felt
+# local prev_root : felt
+#     local new_root : felt
 
-    local account_dict : DictAccess*
-    local order_dict : DictAccess*
-    # ! fee tracker dict should be initialized with zeros!
-    local fee_tracker_dict : DictAccess*
+# local account_dict : DictAccess*
+#     local order_dict : DictAccess*
+#     # ! fee tracker dict should be initialized with zeros!
+#     local fee_tracker_dict : DictAccess*
 
-    local limit_orderA : LimitOrder
-    local limit_orderB : LimitOrder
+# local limit_orderA : LimitOrder
+#     local limit_orderB : LimitOrder
 
-    local limit_orderA2 : LimitOrder
-    local limit_orderB2 : LimitOrder
+# local limit_orderA2 : LimitOrder
+#     local limit_orderB2 : LimitOrder
 
-    let (__fp__, _) = get_fp_and_pc()
-    handle_inputs(
-        &prev_root,
-        &new_root,
-        &account_dict,
-        &order_dict,
-        &fee_tracker_dict,
-        &limit_orderA,
-        &limit_orderB,
-        &limit_orderA2,
-        &limit_orderB2,
-    )
+# let (__fp__, _) = get_fp_and_pc()
+#     handle_inputs(
+#         &prev_root,
+#         &new_root,
+#         &account_dict,
+#         &order_dict,
+#         &fee_tracker_dict,
+#         &limit_orderA,
+#         &limit_orderB,
+#         &limit_orderA2,
+#         &limit_orderB2,
+#     )
 
-    let acc_dict_start : DictAccess* = account_dict
-    let order_dict_start : DictAccess* = order_dict
-    let fee_tracker_dict_start : DictAccess* = fee_tracker_dict
+# let acc_dict_start : DictAccess* = account_dict
+#     let order_dict_start : DictAccess* = order_dict
+#     let fee_tracker_dict_start : DictAccess* = fee_tracker_dict
 
-    # todo temp delete this
-    %{ i = 0 %}
-    verify_swap{
-        account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
-    }(limit_orderA, limit_orderB)
+# # todo temp delete this
+#     %{ i = 0 %}
+#     verify_swap{
+#         account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
+#     }(limit_orderA, limit_orderB)
 
-    verify_swap{
-        account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
-    }(limit_orderA2, limit_orderB2)
+# verify_swap{
+#         account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
+#     }(limit_orderA2, limit_orderB2)
 
-    # =============================================================
-    # Squash the order dict.
-    local squashed_order_dict : DictAccess*
-    %{ ids.squashed_order_dict = segments.add() %}
-    let (squashed_order_dict_end) = squash_dict(
-        dict_accesses=order_dict_start,
-        dict_accesses_end=order_dict,
-        squashed_dict=squashed_order_dict,
-    )
-    local squashed_order_dict_len = squashed_order_dict_end - squashed_order_dict
+# # =============================================================
+#     # Squash the order dict.
+#     local squashed_order_dict : DictAccess*
+#     %{ ids.squashed_order_dict = segments.add() %}
+#     let (squashed_order_dict_end) = squash_dict(
+#         dict_accesses=order_dict_start,
+#         dict_accesses_end=order_dict,
+#         squashed_dict=squashed_order_dict,
+#     )
+#     local squashed_order_dict_len = squashed_order_dict_end - squashed_order_dict
 
-    # Squash the account dict
-    local squashed_account_dict : DictAccess*
-    %{ ids.squashed_account_dict = segments.add() %}
-    let (squashed_account_dict_end) = squash_dict(
-        dict_accesses=acc_dict_start,
-        dict_accesses_end=account_dict,
-        squashed_dict=squashed_account_dict,
-    )
-    local squashed_account_dict_len = squashed_account_dict_end - squashed_account_dict
+# # Squash the account dict
+#     local squashed_account_dict : DictAccess*
+#     %{ ids.squashed_account_dict = segments.add() %}
+#     let (squashed_account_dict_end) = squash_dict(
+#         dict_accesses=acc_dict_start,
+#         dict_accesses_end=account_dict,
+#         squashed_dict=squashed_account_dict,
+#     )
+#     local squashed_account_dict_len = squashed_account_dict_end - squashed_account_dict
 
-    # Squash the fee tracker dict
-    local squashed_fee_tracker_dict : DictAccess*
-    %{ ids.squashed_fee_tracker_dict = segments.add() %}
-    let (squashed_fee_tracker_dict_end) = squash_dict(
-        dict_accesses=fee_tracker_dict_start,
-        dict_accesses_end=fee_tracker_dict,
-        squashed_dict=squashed_fee_tracker_dict,
-    )
-    local squashed_fee_tracker_dict_len = squashed_fee_tracker_dict_end - squashed_fee_tracker_dict
+# # Squash the fee tracker dict
+#     local squashed_fee_tracker_dict : DictAccess*
+#     %{ ids.squashed_fee_tracker_dict = segments.add() %}
+#     let (squashed_fee_tracker_dict_end) = squash_dict(
+#         dict_accesses=fee_tracker_dict_start,
+#         dict_accesses_end=fee_tracker_dict,
+#         squashed_dict=squashed_fee_tracker_dict,
+#     )
+#     local squashed_fee_tracker_dict_len = squashed_fee_tracker_dict_end - squashed_fee_tracker_dict
 
-    # %{
-    #     print("account_dict")
-    #     l2 = int(ids.squashed_account_dict_len/ids.DictAccess.SIZE)
-    #     for i in range(l2):
-    #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +0])
-    #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +1])
-    #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +2])
-    #         print("======")
-    # %}
+# # %{
+#     #     print("account_dict")
+#     #     l2 = int(ids.squashed_account_dict_len/ids.DictAccess.SIZE)
+#     #     for i in range(l2):
+#     #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +0])
+#     #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +1])
+#     #         print(memory[ids.squashed_account_dict.address_ + i*ids.DictAccess.SIZE +2])
+#     #         print("======")
+#     # %}
 
-    %{ assert ids.squashed_account_dict_len % 3 == 0 %}
-    let num_updates = squashed_account_dict_len / 3
-    check_merkle_tree_updates(prev_root, new_root, squashed_account_dict, num_updates)
+# %{ assert ids.squashed_account_dict_len % 3 == 0 %}
+#     let num_updates = squashed_account_dict_len / 3
+#     check_merkle_tree_updates(prev_root, new_root, squashed_account_dict, num_updates)
 
-    %{ print("Swap and merkle updates are valid") %}
+# %{ print("Swap and merkle updates are valid") %}
 
-    return ()
-end
+# return ()
+# end
 
 func verify_swap{
     output_ptr,
@@ -127,8 +127,14 @@ func verify_swap{
     account_dict : DictAccess*,
     order_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
-}(limit_orderA : LimitOrder, limit_orderB : LimitOrder):
+}():
     alloc_locals
+
+    local limit_orderA : LimitOrder
+    local limit_orderB : LimitOrder
+
+    let (__fp__, _) = get_fp_and_pc()
+    handle_current_swap_inputs(&limit_orderA, &limit_orderB)
 
     assert limit_orderA.token_spent = limit_orderB.token_received
     assert limit_orderA.token_received = limit_orderB.token_spent
@@ -138,40 +144,18 @@ func verify_swap{
     local fee_takenA : felt
     local fee_takenB : felt
 
-    local spend_amountA2 : felt
-    local spend_amountB2 : felt
-    local fee_takenA2 : felt
-    local fee_takenB2 : felt
     %{
-        temp_inp_data = swap_input_data2 if i else swap_input_data
-        i+=1
+        spend_amountA = min(ids.limit_orderA.amount_spent, ids.limit_orderB.amount_received) 
+        spend_amountB = min(ids.limit_orderA.amount_received, ids.limit_orderB.amount_spent) 
 
-        sp_am_A1 = min(ids.limit_orderA.amount_spent, ids.limit_orderB.amount_received) 
-        sp_am_B1 = min(ids.limit_orderA.amount_received, ids.limit_orderB.amount_spent) 
+        ids.spend_amountA = spend_amountA
+        ids.spend_amountB = spend_amountB
 
-        ids.spend_amountA = sp_am_A1
-        ids.spend_amountB = sp_am_B1
+        ids.fee_takenA = current_swap["fee_A"]
+        ids.fee_takenB = current_swap["fee_B"]
 
-        ids.fee_takenA = temp_inp_data["fee_A"]
-        ids.fee_takenB = temp_inp_data["fee_B"]
-
-        assert sp_am_A1/sp_am_B1 <= ids.limit_orderA.amount_spent/ids.limit_orderA.amount_received, "user A is getting the short end of the stick in this trade"
-        assert sp_am_B1/sp_am_A1 <= ids.limit_orderB.amount_spent/ids.limit_orderB.amount_received, "user B is getting the short end of the stick in this trade"
-
-
-        #=====================================
-
-        # sp_am_A2 = min(ids.limit_orderA2.amount_spent, ids.limit_orderB2.amount_received) 
-        # sp_am_B2 = min(ids.limit_orderA2.amount_received, ids.limit_orderB2.amount_spent) 
-
-        # ids.spend_amountA = sp_am_A2
-        # ids.spend_amountB = sp_am_B2
-
-        # ids.fee_takenA2 = swap_input_data2["fee_A"]
-        # ids.fee_takenB2 = swap_input_data2["fee_B"]
-
-        # assert sp_am_A2/sp_am_B2 <= ids.limit_orderA2.amount_spent/ids.limit_orderA2.amount_received, "user A is getting the short end of the stick in this trade"
-        # assert sp_am_B2/sp_am_A2 <= ids.limit_orderB2.amount_spent/ids.limit_orderB2.amount_received, "user B is getting the short end of the stick in this trade"
+        assert spend_amountA/spend_amountB <= ids.limit_orderA.amount_spent/ids.limit_orderA.amount_received, "user A is getting the short end of the stick in this trade"
+        assert spend_amountB/spend_amountA <= ids.limit_orderB.amount_spent/ids.limit_orderB.amount_received, "user B is getting the short end of the stick in this trade"
     %}
 
     assert_le(spend_amountA, MAX_AMOUNT)
@@ -185,21 +169,13 @@ func verify_swap{
         account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
     }(limit_orderB, spend_amountB, spend_amountA, fee_takenB)
 
-    %{ print("all good") %}
+    %{ print("swap executed successfully") %}
 
     return ()
 end
 
-func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-    prev_root : felt*,
-    new_root : felt*,
-    account_dict : DictAccess**,
-    order_dict : DictAccess**,
-    fee_tracker_dict : DictAccess**,
-    limit_orderA : LimitOrder*,
-    limit_orderB : LimitOrder*,
-    limit_orderA2 : LimitOrder*,
-    limit_orderB2 : LimitOrder*,
+func handle_current_swap_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    limit_orderA : LimitOrder*, limit_orderB : LimitOrder*
 ):
     alloc_locals
 
@@ -218,99 +194,40 @@ func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET = ids.LimitOrder.receiver_account_index
         LIMIT_ORDER_FEE_LIMIT_OFFSET = ids.LimitOrder.fee_limit
 
-        #* INITIALIZATION ==============================================================
-
-        #? MERKLE INPUTS
-        memory[ids.prev_root] = program_input["prev_root"]
-        memory[ids.new_root] = program_input["new_root"]
-
-        preimage = program_input["preimage"]
-        preimage = {int(k):v for k,v in preimage.items()}
-
-        #? ACCOUNT SPACES
-        fills = {}
-        fee_sums = {}
-        account_spaces =  program_input["account_spaces"]
-
-        memory[ids.account_dict] = segments.add()
-        memory[ids.order_dict] = segments.add()
-        memory[ids.fee_tracker_dict] = segments.add()
-
         #? LIMIT ORDERS ------------------------------------------------------
 
-        # could use an index to get the swap or just pop it from the array
-        swap_input_data = program_input["swaps"][0]
-
-        orderA = swap_input_data["limit_order_A"]
-        orderB = swap_input_data["limit_order_B"]
+        orderA = current_swap["limit_order_A"]
+        orderB = current_swap["limit_order_B"]
 
          # LIMIT ORDER A
         lim_orderA_addr = ids.limit_orderA.address_
-        memory[lim_orderA_addr + LIMIT_ORDER_NONCE_OFFSET] = orderA["nonce"]
-        memory[lim_orderA_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = orderA["public_key"]
-        memory[lim_orderA_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = orderA["expiration_timestamp"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = orderA["signature_r"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = orderA["signature_s"]
-        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = orderA["token_spent"]
-        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = orderA["token_received"]
-        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = orderA["amount_spent"]
-        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = orderA["amount_received"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = orderA["spender_account"]
-        memory[lim_orderA_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = orderA["receiver_account"]
-        memory[lim_orderA_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = orderA["fee_limit"]
+        memory[lim_orderA_addr + LIMIT_ORDER_NONCE_OFFSET] = int(orderA["nonce"])
+        memory[lim_orderA_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = int(orderA["public_key"])
+        memory[lim_orderA_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = int(orderA["expiration_timestamp"])
+        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = int(orderA["signature"][0])
+        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = int(orderA["signature"][1])
+        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = int(orderA["token_spent"])
+        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = int(orderA["token_received"])
+        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = int(orderA["amount_spent"])
+        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = int(orderA["amount_received"])
+        memory[lim_orderA_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = int(orderA["spender_account_idx"])
+        memory[lim_orderA_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = int(orderA["receiver_account_idx"])
+        memory[lim_orderA_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = int(orderA["fee_limit"])
 
         # LIMIT ORDER B
         lim_orderB_addr = ids.limit_orderB.address_
-        memory[lim_orderB_addr + LIMIT_ORDER_NONCE_OFFSET] = orderB["nonce"]
-        memory[lim_orderB_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = orderB["public_key"]
-        memory[lim_orderB_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = orderB["expiration_timestamp"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = orderB["signature_r"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = orderB["signature_s"]
-        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = orderB["token_spent"]
-        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = orderB["token_received"]
-        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = orderB["amount_spent"]
-        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = orderB["amount_received"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = orderB["spender_account"]
-        memory[lim_orderB_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = orderB["receiver_account"]
-        memory[lim_orderB_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = orderB["fee_limit"]
-
-        #? LIMIT ORDER2 ------------------------------------------------------
-
-        # could use an index to get the swap or just pop it from the array
-        swap_input_data2 = program_input["swaps"][1]
-
-        orderA = swap_input_data2["limit_order_A"]
-        orderB = swap_input_data2["limit_order_B"]
-
-         # LIMIT ORDER A
-        lim_orderA_addr = ids.limit_orderA2.address_
-        memory[lim_orderA_addr + LIMIT_ORDER_NONCE_OFFSET] = orderA["nonce"]
-        memory[lim_orderA_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = orderA["public_key"]
-        memory[lim_orderA_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = orderA["expiration_timestamp"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = orderA["signature_r"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = orderA["signature_s"]
-        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = orderA["token_spent"]
-        memory[lim_orderA_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = orderA["token_received"]
-        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = orderA["amount_spent"]
-        memory[lim_orderA_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = orderA["amount_received"]
-        memory[lim_orderA_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = orderA["spender_account"]
-        memory[lim_orderA_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = orderA["receiver_account"]
-        memory[lim_orderA_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = orderA["fee_limit"]
-
-        # LIMIT ORDER B
-        lim_orderB_addr = ids.limit_orderB2.address_
-        memory[lim_orderB_addr + LIMIT_ORDER_NONCE_OFFSET] = orderB["nonce"]
-        memory[lim_orderB_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = orderB["public_key"]
-        memory[lim_orderB_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = orderB["expiration_timestamp"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = orderB["signature_r"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = orderB["signature_s"]
-        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = orderB["token_spent"]
-        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = orderB["token_received"]
-        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = orderB["amount_spent"]
-        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = orderB["amount_received"]
-        memory[lim_orderB_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = orderB["spender_account"]
-        memory[lim_orderB_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = orderB["receiver_account"]
-        memory[lim_orderB_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = orderB["fee_limit"]
+        memory[lim_orderB_addr + LIMIT_ORDER_NONCE_OFFSET] = int(orderB["nonce"])
+        memory[lim_orderB_addr + LIMIT_ORDER_PUBLIC_KEY_OFFSET] = int(orderB["public_key"])
+        memory[lim_orderB_addr + LIMIT_ORDER_EXPIRATION_TIMESTAMP_OFFSET] = int(orderB["expiration_timestamp"])
+        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_R_OFFSET] = int(orderB["signature"][0])
+        memory[lim_orderB_addr + LIMIT_ORDER_SIGNATURE_S_OFFSET] = int(orderB["signature"][1])
+        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_SPENT_OFFSET] = int(orderB["token_spent"])
+        memory[lim_orderB_addr + LIMIT_ORDER_TOKEN_RECEIVED_OFFSET] = int(orderB["token_received"])
+        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_SPENT_OFFSET] = int(orderB["amount_spent"])
+        memory[lim_orderB_addr + LIMIT_ORDER_AMOUNT_RECEIVED_OFFSET] = int(orderB["amount_received"])
+        memory[lim_orderB_addr + LIMIT_ORDER_SPENDER_ACCOUNT_OFFSET] = int(orderB["spender_account_idx"])
+        memory[lim_orderB_addr + LIMIT_ORDER_RECEIVER_ACCOUNT_OFFSET] = int(orderB["receiver_account_idx"])
+        memory[lim_orderB_addr + LIMIT_ORDER_FEE_LIMIT_OFFSET] = int(orderB["fee_limit"])
     %}
 
     return ()

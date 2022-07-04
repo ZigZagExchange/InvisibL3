@@ -1,4 +1,4 @@
-# %builtins output pedersen range_check ecdsa
+%builtins output pedersen range_check ecdsa
 
 from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.cairo.common.alloc import alloc
@@ -19,7 +19,8 @@ from starkware.cairo.common.hash_state import (
     hash_update_single,
 )
 
-# from unshielded_swaps.unshielded_swap import
+from merkle_updates.merkle_updates import check_merkle_tree_updates
+from unshielded_swaps.unshielded_swap import verify_swap
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
     ):
@@ -41,15 +42,10 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : 
     let fee_tracker_dict_start : DictAccess* = fee_tracker_dict
 
     # todo temp delete this
-    %{ i = 0 %}
-    # Replace with multiswap loop
-    verify_swap{
-        account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
-    }(limit_orderA, limit_orderB)
 
-    verify_swap{
-        account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
-    }(limit_orderA2, limit_orderB2)
+    let (
+        account_dict : DictAccess*, order_dict : DictAccess*, fee_tracker_dict : DictAccess*
+    ) = execute_multi_swap(account_dict, order_dict, fee_tracker_dict)
 
     # =============================================================
     # Squash the order dict.
@@ -94,11 +90,31 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : 
 
     %{ assert ids.squashed_account_dict_len % 3 == 0 %}
     let num_updates = squashed_account_dict_len / 3
-    check_merkle_tree_updates(prev_root, new_root, squashed_account_dict, num_updates)
+    check_merkle_tree_updates(prev_root, new_root, squashed_account_dict, num_updates, 8)
 
     %{ print("Swap and merkle updates are valid") %}
 
     return ()
+end
+
+func execute_multi_swap{
+    output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*
+}(account_dict : DictAccess*, order_dict : DictAccess*, fee_tracker_dict : DictAccess*) -> (
+    account_dict : DictAccess*, order_dict : DictAccess*, fee_tracker_dict : DictAccess*
+):
+    alloc_locals
+
+    if nondet %{ len(swap_input_data) == 0 %} != 0:
+        return (account_dict, order_dict, fee_tracker_dict)
+    end
+
+    %{ current_swap = swap_input_data.pop(0) %}
+
+    verify_swap{
+        account_dict=account_dict, order_dict=order_dict, fee_tracker_dict=fee_tracker_dict
+    }()
+
+    return execute_multi_swap(account_dict, order_dict, fee_tracker_dict)
 end
 
 func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -109,6 +125,28 @@ func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     fee_tracker_dict : DictAccess**,
 ):
     alloc_locals
+
+    %{
+        #? MERKLE INPUTS
+        memory[ids.prev_root] = program_input["prev_root"]
+        memory[ids.new_root] = program_input["new_root"]
+
+        preimage = program_input["preimage"]
+        preimage = {int(k):[int(j) for j in v] for k,v in preimage.items()}
+
+        #? ACCOUNT SPACES
+        fills = {}
+        fee_sums = {}
+        account_spaces =  program_input["account_spaces"]
+
+        memory[ids.account_dict] = segments.add()
+        memory[ids.order_dict] = segments.add()
+        memory[ids.fee_tracker_dict] = segments.add()
+
+        #? SWAP INPUT DATA
+        current_swap_num = 0
+        swap_input_data = program_input["swaps"]
+    %}
 
     return ()
 end
