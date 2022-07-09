@@ -10,25 +10,22 @@ from starkware.cairo.common.hash_state import (
     hash_update_single,
 )
 
-from helpers.utils import Signature
+from helpers.utils import Note
 
-func verify_signatures{
-    output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*
-}(
-    tx_hash : felt,
-    public_keys_len : felt,
-    public_keys : felt*,
-    signatures_len : felt,
-    signatures : Signature*,
+func verify_signatures{ecdsa_ptr : SignatureBuiltin*}(
+    tx_hash : felt, notes_len : felt, notes : Note*
 ):
     alloc_locals
+
+    let note : Note = notes[0]
 
     if public_keys_len != signatures_len:
         return ()
     end
 
-    let pub_key = public_keys_len[0]
-    let sig : Signature = signatures_len[0]
+    let pub_key = note.address_pk
+    let sig_r = note.signature_r
+    let sig_s = note.signature_s
 
     verify_ecdsa_signature(
         message=tx_hash,
@@ -37,7 +34,5 @@ func verify_signatures{
         signature_s=limit_order.sig.s,
     )
 
-    return verify_signatures(
-        tx_hash, public_keys_len - 1, &public_keys[1], signatures_len - 1, &signatures[1]
-    )
+    return verify_signatures(tx_hash, notes_len - 1, &notes[1])
 end

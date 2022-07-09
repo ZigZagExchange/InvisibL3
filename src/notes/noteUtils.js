@@ -11,30 +11,15 @@ class Note {
   constructor(K, C, T, idx = 0) {
     // index is used to position it among other notes in the merkle tree
     this.index = idx;
-    this.address = K;
+    this.address_pk = K;
     this.token = T;
     this.commitment = C;
     this.hash = this.hashNote();
   }
 
   hashNote() {
-    let addr;
-    if (this.address.length == 3) {
-      addr = Secp256k1.JtoA(this.address);
-    } else {
-      addr = this.address;
-    }
-
-    let addrHighLowY = splitUint256(addr[1].toString());
-    let addrHighLowX = splitUint256(addr[0].toString());
-
     return BigInt(
-      computeHashOnElements([
-        pedersen([addrHighLowX.high, addrHighLowX.low]),
-        pedersen([addrHighLowY.high, addrHighLowY.low]),
-        this.token,
-        this.commitment,
-      ]),
+      computeHashOnElements([this.address_pk, this.token, this.commitment]),
       16
     );
   }

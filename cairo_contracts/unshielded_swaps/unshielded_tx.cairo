@@ -5,7 +5,7 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.math import assert_lt, assert_le
 from starkware.cairo.common.registers import get_fp_and_pc
-from starkware.cairo.common.dict import dict_new, dict_write, dict_update, dict_squash
+from starkware.cairo.common.dict import dict_new, dict_write, dict_update, dict_squash, dict_read
 from starkware.cairo.common.dict_access import DictAccess
 from starkware.cairo.common.cairo_secp.bigint import BigInt3, bigint_to_uint256, uint256_to_bigint
 from starkware.cairo.common.cairo_secp.ec import EcPoint
@@ -65,7 +65,6 @@ func execute_transaction{
     assert_lt(limit_order.expiration_timestamp, MAX_EXPIRATION_TIMESTAMP)
 
     # Checks the actual ratio is at least as good as the requested(signed) ratio
-
     assert_le(
         spent_amount * limit_order.amount_received, received_amount * limit_order.amount_spent
     )

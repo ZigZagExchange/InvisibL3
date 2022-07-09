@@ -59,65 +59,98 @@ func secp256k1_tests{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}()
     return ()
 end
 
-# func mrkl_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
-#     prev_root : felt, new_root : felt
-# ):
-#     alloc_locals
+func mrkl_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    prev_root : felt, new_root : felt
+):
+    alloc_locals
 
-# const new_leaf = 3164323627516594121377279009776584742545140296216692733963317135789580090177
+    const new_leaf = 3164323627516594121377279009776584742545140296216692733963317135789580090177
 
-# %{ initial_dict = {1:0} %}
-#     let my_dict : DictAccess* = dict_new()
-#     dict_write{dict_ptr=my_dict}(1, 0)
-#     let dict_start = my_dict
+    %{ initial_dict = {1:0} %}
+    let my_dict : DictAccess* = dict_new()
+    dict_write{dict_ptr=my_dict}(1, 0)
+    let dict_start = my_dict
 
-# dict_update{dict_ptr=my_dict}(1, 0, new_leaf)
+    dict_update{dict_ptr=my_dict}(1, 0, new_leaf)
 
-# let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
-#         dict_start, my_dict
-#     )
+    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
+        dict_start, my_dict
+    )
 
-# merkle_multi_update{hash_ptr=pedersen_ptr}(finalized_dict_start, 1, 3, prev_root, new_root)
+    merkle_multi_update{hash_ptr=pedersen_ptr}(finalized_dict_start, 1, 3, prev_root, new_root)
 
-# return ()
-# end
+    return ()
+end
 
-# func dict_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
-#     alloc_locals
+func dict_test{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
+    alloc_locals
 
-# %{ initial_dict = {12:0, 1:0, 4:0} %}
-#     let my_dict : DictAccess* = dict_new()
-#     dict_write{dict_ptr=my_dict}(12, 1)
-#     dict_write{dict_ptr=my_dict}(1, 123)
-#     dict_write{dict_ptr=my_dict}(4, 2020)
-#     let dict_start = my_dict
+    %{ initial_dict = {12:0, 1:0, 4:0} %}
+    let my_dict : DictAccess* = dict_new()
+    dict_write{dict_ptr=my_dict}(12, 1)
+    dict_write{dict_ptr=my_dict}(1, 123)
+    dict_write{dict_ptr=my_dict}(4, 2020)
+    let dict_start = my_dict
 
-# dict_update{dict_ptr=my_dict}(12, 1, 2)
-#     dict_update{dict_ptr=my_dict}(1, 123, 456)
-#     dict_update{dict_ptr=my_dict}(4, 2020, 2022)
+    dict_update{dict_ptr=my_dict}(12, 1, 2)
+    dict_update{dict_ptr=my_dict}(1, 123, 456)
+    dict_update{dict_ptr=my_dict}(4, 2020, 2022)
 
-# let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
-#         dict_start, my_dict
-#     )
+    let (finalized_dict_start, finalized_dict_end) = dict_squash{range_check_ptr=range_check_ptr}(
+        dict_start, my_dict
+    )
 
-# let x : DictAccess = finalized_dict_start[0]
-#     let y : DictAccess = finalized_dict_start[1]
-#     let z : DictAccess = finalized_dict_start[2]
+    let x : DictAccess = finalized_dict_start[0]
+    let y : DictAccess = finalized_dict_start[1]
+    let z : DictAccess = finalized_dict_start[2]
 
-# %{
-#         print("key:", ids.x.key)
-#         print("prev:", ids.x.prev_value)
-#         print("new:", ids.x.new_value)
-#         print("key:", ids.y.key)
-#         print("prev:", ids.y.prev_value)
-#         print("new:", ids.y.new_value)
-#         print("key:", ids.z.key)
-#         print("prev:", ids.z.prev_value)
-#         print("new:", ids.z.new_value)
-#     %}
+    %{
+        print("key:", ids.x.key)
+        print("prev:", ids.x.prev_value)
+        print("new:", ids.x.new_value)
+        print("key:", ids.y.key)
+        print("prev:", ids.y.prev_value)
+        print("new:", ids.y.new_value)
+        print("key:", ids.z.key)
+        print("prev:", ids.z.prev_value)
+        print("new:", ids.z.new_value)
+    %}
 
-# return ()
-# end
+    return ()
+end
+
+# this two functions will be deprecated when replacing notes with (amounts, blindings, addresses, ...)
+func notes_to_addresses{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    notes_len : felt, notes : Note*, addresses_len : felt, addresses : EcPoint*
+) -> (res_len : felt, res : EcPoint*):
+    alloc_locals
+    if notes_len == 0:
+        return (addresses_len, addresses)
+    end
+
+    let note = notes[0]
+    let addr : EcPoint = note.address
+
+    assert addresses[addresses_len] = addr
+
+    return notes_to_addresses(notes_len - 1, &notes[1], addresses_len + 1, addresses)
+end
+
+func notes_to_amounts{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+    notes_len : felt, notes : Note*, amounts_len : felt, amounts : felt*
+) -> (res_len : felt, res : felt*):
+    alloc_locals
+    if notes_len == 0:
+        return (amounts_len, amounts)
+    end
+
+    let note = notes[0]
+    let amount = note.amount
+
+    assert amounts[amounts_len] = amount
+
+    return notes_to_amounts(notes_len - 1, &notes[1], amounts_len + 1, amounts)
+end
 
 func handle_inputs_test{pedersen_ptr : HashBuiltin*}(x : felt*):
     %{

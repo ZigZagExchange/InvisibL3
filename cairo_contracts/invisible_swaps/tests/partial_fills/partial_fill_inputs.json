@@ -1,0 +1,190 @@
+{
+    "swaps": [
+        {
+            "dummy_hash_A": 841676219470141720831047896491247128,
+            "dummy_hash_B": 1247128326738393038759384783948789028353242,
+            "order_A": {
+                "notes_in": [
+                    {
+                        "address_pk": 123435462345235235325234,
+                        "token": 0,
+                        "amount": 700,
+                        "blinding": 896427348912479532589613481024,
+                        "index": 0,
+                        "hash": 11111111111111111111111111111
+                    },
+                    {
+                        "address_pk": 2352352353532523523455325234,
+                        "token": 0,
+                        "amount": 800,
+                        "blinding": 84712904712648092571243912378,
+                        "index": 1,
+                        "hash": 22222222222222222222222222222
+                    },
+                    {
+                        "address_pk": 148092461284710294790124072194,
+                        "token": 0,
+                        "amount": 500,
+                        "blinding": 128958174091247124078021790409124,
+                        "index": 2,
+                        "hash": 33333333333333333333333333333333333
+                    }
+                ],
+                "refund_note": {
+                    "address_pk": 1248718795698164892168934,
+                    "token": 0,
+                    "amount": 500,
+                    "blinding": 1580285619846189248129461289,
+                    "index": 0,
+                    "hash": 444444444444444444444444444444444
+                },
+                "amount_spent": 1500,
+                "amount_received": 3000,
+                "blindings_seed": 1234123412341234123412341234123412341234123412341234123412341234,
+                "dest_address_pk": 4321123451234512345123451234512345123451234512345123451234512345,
+                "token_spent": 0,
+                "token_received": 1
+            },
+            "order_B": {
+                "notes_in": [
+                    {
+                        "address_pk": 123435462345235235325234,
+                        "token": 1,
+                        "amount": 900,
+                        "blinding": 896427348912479532589613481024,
+                        "index": 3,
+                        "hash": 555555555555555555555555555555555
+                    },
+                    {
+                        "address_pk": 2352352353532523523455325234,
+                        "token": 1,
+                        "amount": 1800,
+                        "blinding": 84712904712648092571243912378,
+                        "index": 4,
+                        "hash": 66666666666666666666666666666666
+                    },
+                    {
+                        "address_pk": 148092461284710294790124072194,
+                        "token": 1,
+                        "amount": 650,
+                        "blinding": 128958174091247124078021790409124,
+                        "index": 5,
+                        "hash": 7777777777777777777777777777777
+                    }
+                ],
+                "refund_note": {
+                    "address_pk": 1248718795698164892168934,
+                    "token": 1,
+                    "amount": 1145,
+                    "blinding": 1580285619846189248129461289,
+                    "index": 3,
+                    "hash": 88888888888888888888888888888888
+                },
+                "amount_spent": 2205,
+                "amount_received": 1100,
+                "blindings_seed": 6666666666666666666666666666666666666666666666666666666666221,
+                "dest_address_pk": 74444444444444444444444444444429999999999999292938741724791742041,
+                "token_spent": 1,
+                "token_received": 0
+            },
+            "indexes": {
+                "order_A": {
+                    "refund_idx": 0,
+                    "swap_note_idx": 1,
+                    "partial_fill_idx": 2,
+                    "zero_indexes": []
+                },
+                "order_B": {
+                    "refund_idx": 3,
+                    "swap_note_idx": 4,
+                    "partial_fill_idx": null,
+                    "zero_indexes": [
+                        5
+                    ]
+                }
+            },
+            "spend_amountA": 1100,
+            "spend_amountB": 2205
+        },
+        {
+            "dummy_hash_A": 841676219470141720831047896491247128,
+            "dummy_hash_B": 1247128326738393038759384783948789028353242,
+            "order_A": {
+                "notes_in": [
+                    {
+                        "address_pk": 123435462345235235325234,
+                        "token": 0,
+                        "amount": 700,
+                        "blinding": 896427348912479532589613481024,
+                        "index": 0
+                    },
+                    {
+                        "address_pk": 2352352353532523523455325234,
+                        "token": 0,
+                        "amount": 800,
+                        "blinding": 84712904712648092571243912378,
+                        "index": 1
+                    },
+                    {
+                        "address_pk": 148092461284710294790124072194,
+                        "token": 0,
+                        "amount": 500,
+                        "blinding": 128958174091247124078021790409124,
+                        "index": 2
+                    }
+                ],
+                "refund_note": {
+                    "address_pk": 1248718795698164892168934,
+                    "token": 0,
+                    "amount": 500,
+                    "blinding": 1580285619846189248129461289,
+                    "index": 0
+                },
+                "amount_spent": 1500,
+                "amount_received": 3000,
+                "blindings_seed": 1234123412341234123412341234123412341234123412341234123412341234,
+                "dest_address_pk": 4321123451234512345123451234512345123451234512345123451234512345,
+                "token_spent": 0,
+                "token_received": 1
+            },
+            "order_B": {
+                "notes_in": [
+                    {
+                        "address_pk": 123435462345235235325234,
+                        "token": 1,
+                        "amount": 1300,
+                        "blinding": 896427348912479532589613481024,
+                        "index": 6
+                    }
+                ],
+                "refund_note": {
+                    "address_pk": 1248718795698164892168934,
+                    "token": 1,
+                    "amount": 500,
+                    "blinding": 1580285619846189248129461289,
+                    "index": 6
+                },
+                "amount_spent": 800,
+                "amount_received": 400,
+                "blindings_seed": 6666666666666666666666666666666666666666666666666666666666221,
+                "dest_address_pk": 74444444444444444444444444444429999999999999292938741724791742041,
+                "token_spent": 1,
+                "token_received": 0
+            },
+            "indexes": {
+                "order_A": {
+                    "refund_idx": 2,
+                    "swap_note_idx": 8,
+                    "partial_fill_idx": null
+                },
+                "order_B": {
+                    "refund_idx": 6,
+                    "swap_note_idx": 7,
+                    "partial_fill_idx": null
+                }
+            },
+            "spend_amountA": 400,
+            "spend_amountB": 800
+        }
+    ]
+}

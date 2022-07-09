@@ -17,7 +17,7 @@ func generator{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}() -> (r
 end
 
 struct Note:
-    member address : EcPoint
+    member address_pk : felt
     member token : felt
     member amount : felt
     member blinding_factor : felt
@@ -25,8 +25,50 @@ struct Note:
 end
 
 struct Signature:
-    member r : felt
-    member s : felt
+    member signature_r : felt
+    member signature_s : felt
+end
+
+struct Invisibl3Order:
+    member nonce : felt
+    member expiration_timestamp : felt
+    member token_spent : felt
+    member token_received : felt
+    member amount_spent : felt
+    member amount_received : felt
+    member fee_limit : felt
+    member dest_spent_address : felt
+    member dest_received_address : felt
+    member blinding_seed : felt
+end
+
+func sum_notes(notes_len : felt, notes : Note*, sum : felt) -> (sum):
+    alloc_locals
+
+    if notes_len == 0:
+        return (sum)
+    end
+
+    let note : Note = notes[0]
+    let sum = sum + note.amount
+
+    return sum_notes(notes_len - 1, &notes[1], sum)
+end
+
+func make_new_note(
+    address_pk : felt, token : felt, amount : felt, blinding_factor : felt, index : felt
+) -> (note : Note):
+    alloc_locals
+
+    let new_note : Note = Note(
+        address_pk=address_pk,
+        token=token,
+        amount=amount,
+        blinding_factor=blinding_factor,
+        index=index,
+    )
+
+    return (new_note)
 end
 
 func concat_arrays{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(

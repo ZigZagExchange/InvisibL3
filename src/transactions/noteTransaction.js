@@ -1,10 +1,3 @@
-const poseidon = require("../../circomlib/src/poseidon.js");
-const ecMul = require("../../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
-const G = require("../../circomlib/src/babyjub.js").Generator;
-const H = require("../../circomlib/src/babyjub.js").Base8;
-
 const Secp256k1 = require("@enumatech/secp256k1-js");
 const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
 const randomBigInt = require("random-bigint");
@@ -31,17 +24,6 @@ const P = 2n ** 251n + 2n ** 192n + 1n;
 const NUM_NOTES = 3;
 
 module.exports = class NoteTransaction {
-  // nonce,
-  // public_key,
-  // expiration_timestamp,
-  // token_spent,
-  // token_received,
-  // amount_spent,
-  // amount_received,
-  // spender_account_idx,
-  // receiver_account_idx,
-  // fee_limit
-
   constructor(
     nonce,
     expiration_timestamp,
