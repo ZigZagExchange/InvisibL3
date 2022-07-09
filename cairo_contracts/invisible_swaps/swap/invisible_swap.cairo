@@ -20,11 +20,89 @@ from starkware.cairo.common.hash_state import (
     hash_update_single,
 )
 
-from invisibl3_swaps.transaction.tx_hash.tx_hash import hash_transaction
-from invisibl3_swaps.swap.transaction.invisibl3_tx import execute_invisibl3_transaction
+from invisible_swaps.swap.tx_hash.tx_hash import hash_transaction
+from invisible_swaps.swap.transaction.invisibl3_tx import execute_invisibl3_transaction
+from invisible_swaps.helpers.utils import Invisibl3Order, Note
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
+
+    # GLOBAL VERIABLES
+    %{
+        swap_input_data = program_input["swaps"] 
+        prev_filled_dict_manager = {}
+        prev_fill_notes = {}
+        prev_fill_note_hashes = {}
+        fee_tracker_dict_manager = {}
+    %}
+
+    local note_dict : DictAccess*
+    local partial_fill_dict : DictAccess*
+    local fee_tracker_dict : DictAccess*
+    %{
+        ids.note_dict = segments.add()
+        ids.partial_fill_dict = segments.add()
+        ids.fee_tracker_dict = segments.add()
+    %}
+    let note_dict_start = note_dict
+    let partial_fill_dict_start = partial_fill_dict
+    let fee_tracker_dict_start = fee_tracker_dict
+
+    # %{
+    #     import time
+    #     t1 = time.time()
+    # %}
+    %{ current_swap = swap_input_data.pop(0) %}
+    verify_swap{
+        note_dict=note_dict, partial_fill_dict=partial_fill_dict, fee_tracker_dict=fee_tracker_dict
+    }()
+    # %{
+    #     t2 = time.time()
+    #     print("time: ", t2-t1)
+    # %}
+
+    %{ current_swap = swap_input_data.pop(0) %}
+    verify_swap{
+        note_dict=note_dict, partial_fill_dict=partial_fill_dict, fee_tracker_dict=fee_tracker_dict
+    }()
+
+    # ================================================
+    local squashed_note_dict : DictAccess*
+    %{ ids.squashed_note_dict = segments.add() %}
+    let (squashed_note_dict_end) = squash_dict(
+        dict_accesses=note_dict_start, dict_accesses_end=note_dict, squashed_dict=squashed_note_dict
+    )
+    local squashed_note_dict_len = squashed_note_dict_end - squashed_note_dict
+    # ================================================
+    local squashed_fee_tracker_dict : DictAccess*
+    %{ ids.squashed_fee_tracker_dict = segments.add() %}
+    let (squashed_fee_tracker_dict_end) = squash_dict(
+        dict_accesses=fee_tracker_dict_start,
+        dict_accesses_end=fee_tracker_dict,
+        squashed_dict=squashed_fee_tracker_dict,
+    )
+    local squashed_fee_tracker_dict_len = squashed_fee_tracker_dict_end - squashed_fee_tracker_dict
+    # ================================================
+
+    %{
+        # print("note_dict")
+        # l = int(ids.squashed_note_dict_len/ids.DictAccess.SIZE)
+        # for i in range(l):
+        #     print(memory[ids.squashed_note_dict.address_ + i*ids.DictAccess.SIZE +0])
+        #     print(memory[ids.squashed_note_dict.address_ + i*ids.DictAccess.SIZE +1])
+        #     print(memory[ids.squashed_note_dict.address_ + i*ids.DictAccess.SIZE +2])
+        #     print("======")
+
+        print("fee_tracker_dict")
+        l2 = int(ids.squashed_fee_tracker_dict_len/ids.DictAccess.SIZE)
+        for i in range(l2):
+            print(memory[ids.squashed_fee_tracker_dict.address_ + i*ids.DictAccess.SIZE +0])
+            print(memory[ids.squashed_fee_tracker_dict.address_ + i*ids.DictAccess.SIZE +1])
+            print(memory[ids.squashed_fee_tracker_dict.address_ + i*ids.DictAccess.SIZE +2])
+            print("======")
+    %}
+
+    %{ print("all good") %}
 
     return ()
 end
@@ -35,6 +113,7 @@ func verify_swap{
     range_check_ptr,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
+    fee_tracker_dict : DictAccess*,
 }():
     alloc_locals
 
@@ -51,8 +130,8 @@ func verify_swap{
 
     let (__fp__, _) = get_fp_and_pc()
     handle_inputs(
-        &test_order_A,
-        &test_order_B,
+        &invisibl3_order_A,
+        &invisibl3_order_B,
         &notes_in_A_len,
         &notes_in_A,
         &refund_note_A,
@@ -91,10 +170,28 @@ func verify_swap{
     )
 
     %{ order_indexes = index_data["order_A"] %}
-    execute_invisibl3_transaction()
+    execute_invisibl3_transaction(
+        order_hash_A,
+        notes_in_A_len,
+        notes_in_A,
+        refund_note_A,
+        invisibl3_order_A,
+        spend_amountA,
+        spend_amountB,
+        fee_takenA,
+    )
 
     %{ order_indexes = index_data["order_B"] %}
-    execute_invisibl3_transaction()
+    execute_invisibl3_transaction(
+        order_hash_B,
+        notes_in_B_len,
+        notes_in_B,
+        refund_note_B,
+        invisibl3_order_B,
+        spend_amountB,
+        spend_amountA,
+        fee_takenB,
+    )
 
     return ()
 end
@@ -102,12 +199,12 @@ end
 func handle_inputs{pedersen_ptr : HashBuiltin*}(
     invisibl3_order_A : Invisibl3Order*,
     invisibl3_order_B : Invisibl3Order*,
-    notes_in_A_len,
-    notes_in_A,
-    refund_note_A,
-    notes_in_B_len,
-    notes_in_B,
-    refund_note_B,
+    notes_in_A_len : felt*,
+    notes_in_A : Note**,
+    refund_note_A : Note*,
+    notes_in_B_len : felt*,
+    notes_in_B : Note**,
+    refund_note_B : Note*,
 ):
     %{
         # * STRUCT SIZES ==========================================================
@@ -120,31 +217,27 @@ func handle_inputs{pedersen_ptr : HashBuiltin*}(
         INDEX_OFFSET = ids.Note.index
 
 
-        INVISIBLE_ORDER_SIZE = ids.InvisibleOrder.SIZE
-        NONCE_OFFSET = ids.InvisibleOrder.nonce
-        EXPIRATION_TIMESTAMP_OFFSET = ids.InvisibleOrder.expiration_timestamp
-        SIGNATURE_R_OFFSET = ids.InvisibleOrder.signature_r
-        SIGNATURE_S_OFFSET = ids.InvisibleOrder.signature_s
-        TOKEN_SPENT_OFFSET = ids.InvisibleOrder.token_spent
-        TOKEN_RECEIVED_OFFSET = ids.InvisibleOrder.token_received
-        AMOUNT_SPENT_OFFSET = ids.InvisibleOrder.amount_spent
-        AMOUNT_RECEIVED_OFFSET = ids.InvisibleOrder.amount_received
-        FEE_LIMIT_OFFSET = ids.InvisibleOrder.fee_limit
-        DEST_SPENT_ADDR_OFFSET = ids.InvisibleOrder.dest_spent_address
-        DEST_RECEIVED_ADDR_OFFSET = ids.InvisibleOrder.dest_received_address
-        BLINDING_SEED_OFFSET = ids.InvisibleOrder.blinding_seed
+        INVISIBLE_ORDER_SIZE = ids.Invisibl3Order.SIZE
+        NONCE_OFFSET = ids.Invisibl3Order.nonce
+        EXPIRATION_TIMESTAMP_OFFSET = ids.Invisibl3Order.expiration_timestamp
+        TOKEN_SPENT_OFFSET = ids.Invisibl3Order.token_spent
+        TOKEN_RECEIVED_OFFSET = ids.Invisibl3Order.token_received
+        AMOUNT_SPENT_OFFSET = ids.Invisibl3Order.amount_spent
+        AMOUNT_RECEIVED_OFFSET = ids.Invisibl3Order.amount_received
+        FEE_LIMIT_OFFSET = ids.Invisibl3Order.fee_limit
+        DEST_SPENT_ADDR_OFFSET = ids.Invisibl3Order.dest_spent_address
+        DEST_RECEIVED_ADDR_OFFSET = ids.Invisibl3Order.dest_received_address
+        BLINDING_SEED_OFFSET = ids.Invisibl3Order.blinding_seed
 
 
         ##* ORDER A =============================================================
 
         order_A_input = current_swap["order_A"]
 
-        order_A_addr = memory[ids.invisibl3_order_A].address_
+        order_A_addr = ids.invisibl3_order_A.address_
 
         memory[order_A_addr + NONCE_OFFSET] = order_A_input["nonce"]
         memory[order_A_addr + EXPIRATION_TIMESTAMP_OFFSET] = order_A_input["expiration_timestamp"]
-        memory[order_A_addr + SIGNATURE_R_OFFSET] = order_A_input["signature"][0]
-        memory[order_A_addr + SIGNATURE_S_OFFSET] = order_A_input["signature"][1]
         memory[order_A_addr + TOKEN_SPENT_OFFSET] = order_A_input["token_spent"]
         memory[order_A_addr + TOKEN_RECEIVED_OFFSET] = order_A_input["token_received"]
         memory[order_A_addr + AMOUNT_SPENT_OFFSET] = order_A_input["amount_spent"]
@@ -178,12 +271,10 @@ func handle_inputs{pedersen_ptr : HashBuiltin*}(
 
         order_B_input = current_swap["order_B"]
 
-        order_B_addr = memory[ids.invisibl3_order_B].address_
+        order_B_addr = ids.invisibl3_order_B.address_
 
         memory[order_B_addr + NONCE_OFFSET] = order_B_input["nonce"]
         memory[order_B_addr + EXPIRATION_TIMESTAMP_OFFSET] = order_B_input["expiration_timestamp"]
-        memory[order_B_addr + SIGNATURE_R_OFFSET] = order_B_input["signature"][0]
-        memory[order_B_addr + SIGNATURE_S_OFFSET] = order_B_input["signature"][1]
         memory[order_B_addr + TOKEN_SPENT_OFFSET] = order_B_input["token_spent"]
         memory[order_B_addr + TOKEN_RECEIVED_OFFSET] = order_B_input["token_received"]
         memory[order_B_addr + AMOUNT_SPENT_OFFSET] = order_B_input["amount_spent"]

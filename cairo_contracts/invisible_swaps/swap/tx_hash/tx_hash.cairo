@@ -5,8 +5,6 @@ from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.math import split_felt, unsigned_div_rem
-from starkware.cairo.common.cairo_secp.bigint import BigInt3, bigint_to_uint256, uint256_to_bigint
-from starkware.cairo.common.cairo_secp.ec import EcPoint, ec_double, ec_add, ec_mul, ec_negate
 from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.hash_state import (
     hash_init,
@@ -14,8 +12,7 @@ from starkware.cairo.common.hash_state import (
     hash_update,
     hash_update_single,
 )
-
-from helpers.utils import Note
+from invisible_swaps.helpers.utils import Note, Invisibl3Order, hash_note
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     alloc_locals
@@ -78,13 +75,13 @@ func hash_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
         notes_in_len, notes_in, 0, empty_arr
     )
 
-    let (refund_note_hash : felt) = _hash_note(refund_note)
+    let (refund_note_hash : felt) = hash_note(refund_note)
 
     let (tx_hash : felt) = _hash_transaction_internal(
         hashed_notes_in_len, hashed_notes_in, refund_note_hash, invisibl3_order
     )
 
-    return (tx_hash, hashed_notes_in_len, hashed_notes_in, refund_note_hash)
+    return (tx_hash)
 end
 
 func _hash_transaction_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
@@ -129,45 +126,15 @@ func hash_notes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     notes_len : felt, notes : Note*, arr_len : felt, arr : felt*
 ) -> (arr_len : felt, arr : felt*):
     alloc_locals
-    if amounts_len == 0:
+    if notes_len == 0:
         return (arr_len, arr)
     end
 
-    let (note_hash : felt) = _hash_note(notes[0])
+    let (note_hash : felt) = hash_note(notes[0])
 
     assert arr[arr_len] = note_hash
 
     return hash_notes_array(notes_len - 1, &notes[1], arr_len + 1, arr)
-end
-
-func _hash_note{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(note : Note) -> (
-    res : felt
-):
-    alloc_locals
-
-    # struct Note:
-    #     member address_pk : felt
-    #     member token : felt
-    #     member amount : felt
-    #     member blinding_factor : felt
-    #     member index : felt
-    #     member signature_r : felt
-    #     member signature_s : felt
-    # end
-
-    let (commitment : felt) = hash2{hash_ptr=pedersen_ptr}(note.amount, note.blinding_factor)
-
-    let hash_ptr = pedersen_ptr
-    with hash_ptr:
-        let (hash_state_ptr) = hash_init()
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, note.address_pk)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, note.token)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, commitment)
-
-        let (res) = hash_finalize(hash_state_ptr)
-        let pedersen_ptr = hash_ptr
-        return (hash=res)
-    end
 end
 
 # #############################################################################
