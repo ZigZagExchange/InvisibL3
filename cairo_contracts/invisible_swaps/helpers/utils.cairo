@@ -52,7 +52,7 @@ func hash_note{pedersen_ptr : HashBuiltin*}(note : Note) -> (hash : felt):
     end
 end
 
-func sum_notes(notes_len : felt, notes : Note*, sum : felt) -> (sum):
+func sum_notes(notes_len : felt, notes : Note*, token : felt, sum : felt) -> (sum):
     alloc_locals
 
     if notes_len == 0:
@@ -60,9 +60,11 @@ func sum_notes(notes_len : felt, notes : Note*, sum : felt) -> (sum):
     end
 
     let note : Note = notes[0]
+    assert note.token = token
+
     let sum = sum + note.amount
 
-    return sum_notes(notes_len - 1, &notes[1], sum)
+    return sum_notes(notes_len - 1, &notes[1], token, sum)
 end
 
 func construct_new_note(

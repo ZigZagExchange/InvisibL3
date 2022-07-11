@@ -1,7 +1,7 @@
-const noteUtils = require("../src/notes/noteUtils");
-const dummyData = require("../src/dummy/dummyData");
-const Transaction = require("../src/transactions/noteTransaction.js");
-const Swap = require("../src/transactions/swapTransaction.js");
+const noteUtils = require("../../src/notes/noteUtils");
+const dummyData = require("../../src/dummy/dummyData");
+const Transaction = require("../../src/transactions/noteTransaction.js");
+const Swap = require("../../src/transactions/swapTransaction.js");
 const randomBigInt = require("random-bigint");
 
 //TODO Temporary randomness for one time address

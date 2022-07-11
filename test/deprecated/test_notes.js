@@ -1,14 +1,14 @@
-const babyJubJub = require("../circomlib/src/babyjub.js");
-const ecMul = require("../circomlib/src/babyjub.js").mulPointEscalar;
-const ecAdd = require("../circomlib/src/babyjub.js").addPoint;
-const ecSub = require("../circomlib/src/babyjub.js").subPoint;
-const F = require("../circomlib/src/babyjub.js").F;
+const babyJubJub = require("../../circomlib/src/babyjub.js");
+const ecMul = require("../../circomlib/src/babyjub.js").mulPointEscalar;
+const ecAdd = require("../../circomlib/src/babyjub.js").addPoint;
+const ecSub = require("../../circomlib/src/babyjub.js").subPoint;
+const F = require("../../circomlib/src/babyjub.js").F;
 // const poseidon = require("../../circomlib/src/poseidon.js");
 
-const Transaction = require("../src/notes/noteUtils").Transaction;
-const Note = require("../src/notes/noteUtils").Note;
-const utils = require("../src/notes/noteUtils");
-const dummyData = require("../src/dummy/dummyData");
+const Transaction = require("../../src/notes/noteUtils").Transaction;
+const Note = require("../../src/notes/noteUtils").Note;
+const utils = require("../../src/notes/noteUtils");
+const dummyData = require("../../src/dummy/dummyData");
 
 let G = babyJubJub.Generator;
 

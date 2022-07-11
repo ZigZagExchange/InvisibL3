@@ -1,0 +1,524 @@
+{
+    "withdraw_data": [
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        },
+        {
+            "on_chain_withdraw_info": {
+                "withdraw_id": 1001,
+                "token": 0,
+                "amount": 1000,
+                "stark_key": 261471528371273198264
+            },
+            "notes": [
+                {
+                    "amount": 600,
+                    "blinding_factor": 1111,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 0
+                },
+                {
+                    "amount": 250,
+                    "blinding_factor": 2222,
+                    "token": 0,
+                    "address_pk": 346289328947328949832443,
+                    "index": 1
+                },
+                {
+                    "amount": 450,
+                    "blinding_factor": 3333,
+                    "token": 0,
+                    "address_pk": 712846824794021421024189,
+                    "index": 2
+                }
+            ],
+            "refund_note": {
+                "amount": 300,
+                "blinding_factor": 4444,
+                "token": 0,
+                "address_pk": 712846824794021421024189,
+                "index": 0
+            },
+            "signatures": [
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ],
+                [
+                    1234,
+                    5678
+                ]
+            ]
+        }
+    ]
+}

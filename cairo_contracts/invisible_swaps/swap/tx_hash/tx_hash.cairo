@@ -65,7 +65,7 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}():
     return ()
 end
 
-func hash_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func hash_transaction{pedersen_ptr : HashBuiltin*, range_check_ptr}(
     invisibl3_order : Invisibl3Order, notes_in_len : felt, notes_in : Note*, refund_note : Note
 ) -> (hash):
     alloc_locals
@@ -84,7 +84,7 @@ func hash_transaction{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
     return (tx_hash)
 end
 
-func _hash_transaction_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func _hash_transaction_internal{pedersen_ptr : HashBuiltin*, range_check_ptr}(
     hashes_in_len : felt,
     hashes_in : felt*,
     refund_note_hash : felt,
@@ -122,7 +122,7 @@ func _hash_transaction_internal{output_ptr, pedersen_ptr : HashBuiltin*, range_c
     end
 end
 
-func hash_notes_array{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func hash_notes_array{pedersen_ptr : HashBuiltin*, range_check_ptr}(
     notes_len : felt, notes : Note*, arr_len : felt, arr : felt*
 ) -> (arr_len : felt, arr : felt*):
     alloc_locals
@@ -140,7 +140,7 @@ end
 # #############################################################################
 # #############################################################################
 
-func handle_inputs{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr}(
+func handle_inputs(
     indexes_len : felt*,
     indexes : felt**,
     notes_in_len : felt*,
