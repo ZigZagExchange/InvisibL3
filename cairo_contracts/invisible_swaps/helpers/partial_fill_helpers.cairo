@@ -50,6 +50,7 @@ func partial_fill_updates{pedersen_ptr : HashBuiltin*, partial_fill_dict : DictA
         "amount": ids.partial_fill_note.amount,
         "blinding_factor": ids.partial_fill_note.blinding_factor,
         "index": ids.partial_fill_note.index,
+        "hash": ids.partial_fill_note.hash,
         }
 
         try:

@@ -1,17 +1,35 @@
-const Secp256k1 = require("@enumatech/secp256k1-js");
 const bigInt = require("big-integer");
 const { pedersen, computeHashOnElements } = require("starknet/utils/hash");
+const randomBigInt = require("random-bigint");
+const {
+  getKeyPair,
+  getStarkKey,
+  getKeyPairFromPublicKey,
+  sign,
+  verify,
+  ec,
+} = require("starknet/utils/ellipticCurve");
+
+const {
+  _generateSubaddress,
+  _subaddressPrivKeys,
+  _generateOneTimeAddress,
+  _oneTimeAddressPrivKey,
+  _hideValuesForRecipient,
+  _revealHiddenValues,
+  _checkOwnership,
+} = require("./Invisibl3UserUtils");
+const InvisibleOrder = require("../transactions/InvisibleOrder");
+const InvisibleWithdrawal = require("../transactions/InvisibleWithdrawal");
 
 const {
   trimHash,
   Note,
-  generateOneTimeAddress,
   newCommitment,
   split,
   splitUint256,
-} = require("./noteUtils.js");
-const randomBigInt = require("random-bigint");
-const poseidon = require("../../circomlib/src/poseidon.js");
+} = require("./Notes.js");
+const InvisibleDeposit = require("../transactions/InvisibleDeposit");
 
 const COMMITMENT_MASK = 112233445566778899n;
 const AMOUNT_MASK = 998877665544332112n;
@@ -24,12 +42,241 @@ module.exports = class User {
     this.privViewKey = _privViewKey; //kv
     this.privSpendKey = _privSpendKey; //ks
 
-    this.pubViewKey = Secp256k1.mulG(Secp256k1.uint256(_privViewKey));
-    this.pubSpendKey = Secp256k1.mulG(Secp256k1.uint256(_privSpendKey));
+    this.pubViewKey = getKeyPair(_privViewKey);
+    this.pubSpendKey = getKeyPair(_privSpendKey);
 
-    this.noteData = {};
+    // TODO: Look at the comments
+    this.noteData = {}; // token -> [{note, ko}] ==> change to [{note}] and use address2ko for kos
+    this.address2ko = {}; // mapping of addresses to private keys
+
+    this.activeOrders = []; // All limit orders that are active
+    this.partialFills = []; // All limit orders that have been partially filled
+
+    this.activeDeposits = {}; // All deposits that are active  id: {deposit,notes}
+    this.activeWithdrawals = []; // All withdrawals that are active {withdrawal, notes}
+
+    this.orderHistory = []; // All orders this user has made
   }
 
+  //* GENERATE ORDERS  ==========================================================
+
+  makeLimitOrder(
+    nonce,
+    expiration_timestamp,
+    token_spent,
+    token_received,
+    amount_spent,
+    amount_received,
+    fee_limit,
+    // Todo: below three should be calculated by some formula
+    dest_spent_address,
+    dest_received_address,
+    blinding_seed
+  ) {
+    let sum = 0n;
+    let notesIn = [];
+    let signingKeys = [];
+    while (sum < amount_spent) {
+      let note = this.noteData[token_spent].pop(0);
+      let ko = this.address2ko[note.address_pk()];
+      notesIn.push(note);
+      signingKeys.push(getKeyPair(ko));
+      sum += note.amount;
+    }
+
+    let refundNote;
+    let refundAmount = sum - amount_spent;
+    if (refundAmount > 0n) {
+      // TODO: What to do if refund amount is zero???
+      let blinding = randomBigInt(250);
+      let ko = randomBigInt(250);
+      let addr = ec.g.mul(ko.toString(16));
+      refundNote = new Note(
+        addr,
+        token_spent,
+        refundAmount,
+        blinding,
+        notesIn[0].index
+      );
+
+      this.noteData[token_spent].push(refundNote);
+      this.address2ko[refundNote.address_pk()] = ko;
+    }
+
+    const order = new InvisibleOrder(
+      nonce,
+      expiration_timestamp,
+      token_spent,
+      token_received,
+      amount_spent,
+      amount_received,
+      fee_limit,
+      dest_spent_address,
+      dest_received_address,
+      blinding_seed,
+      notesIn,
+      refundNote
+    );
+
+    order.sign_order(signingKeys);
+
+    return order;
+  }
+
+  makeWithdrawalOrder(withdrawAmount, withdrawToken, withdrawStarkKey) {
+    let sum = 0n;
+    let notesIn = [];
+    let privKeys = [];
+    while (sum < withdrawAmount) {
+      let note = this.noteData[withdrawToken].pop(0);
+      if (!note) {
+        throw new Error("Not enough notes to make such a withdrawal");
+      }
+      let ko = this.address2ko[note.address_pk()];
+      notesIn.push(note);
+      privKeys.push(ko);
+      sum += note.amount;
+    }
+
+    let refundNote;
+    let refundAmount = sum - withdrawAmount;
+    if (refundAmount > 0n) {
+      // Todo || What to do if refund amount is zero???
+      // Todo || (return empty refund note => make notes with 0 amount hash to zero leaves)
+      // Todo this should again be calculated by some formula
+      let blinding = randomBigInt(250);
+      let ko = randomBigInt(250);
+      let addr = ec.g.mul(ko.toString(16));
+      refundNote = new Note(
+        addr,
+        withdrawToken,
+        refundAmount,
+        blinding,
+        notesIn[0].index
+      );
+
+      this.noteData[token_spent].push(refundNote);
+      this.address2ko[refundNote.address_pk()] = ko;
+    }
+
+    let withdrawId = notesIn.reduce((acc, note) => {
+      return acc + note.index;
+    }, 0);
+    withdrawId = pedersen([withdrawId, 0]);
+
+    const withdrawal = new InvisibleWithdrawal(
+      withdrawId,
+      withdrawToken,
+      withdrawAmount,
+      withdrawStarkKey,
+      notesIn,
+      refundNote
+    );
+
+    withdrawal.signwithdrawTransaction(privKeys);
+
+    return withdrawal;
+  }
+
+  makeDepositOrder(depositId, depositAmount, depositToken, depositStarkKey) {
+    let depositAmounts = this._getRandomAmounts(depositAmount);
+    // todo: generate below values by some formula (add kos to this.address2ko)
+    let kos = [152787124n, 812341234n, 27347238483n];
+    let addresses = kos.map((ko) => getKeyPair(ko).getPublic());
+    let blindings = [67523128912n, 2385764329844n, 7823646239432n];
+    //TODO: Below address should be retrieved from the blockchain
+    let privKey = 2165481273712648921734n;
+    depositStarkKey = getKeyPair(privKey).getPublic();
+
+    let depositNotes = this._generateNewNotes(
+      depositAmounts,
+      blindings,
+      addresses,
+      depositToken
+    );
+
+    let deposit = new InvisibleDeposit(
+      depositId,
+      depositToken,
+      depositAmount,
+      depositStarkKey,
+      depositNotes
+    );
+
+    deposit.signDeposit(privKey);
+
+    for (let i = 0; i < depositNotes.length; i++) {
+      this.addNote(depositNotes[i], kos[i]);
+    }
+
+    return deposit;
+  }
+
+  //* ON COMPLETED ORDERS ==========================================================
+  // TODO =================
+  onLimitOrderFilled(order, swapNote, newPartialFillRefundNote) {
+    if (newPartialFillRefundNote) {
+      this.noteData[newPartialFillRefundNote.token].push(
+        newPartialFillRefundNote
+      );
+      // priv key should have already been added to this.address2ko when order was made
+    }
+
+    this.noteData[swapNote.token].push(swapNote);
+    // priv key should have already been added to this.address2ko when order was made
+
+    if (order.amountFilled == order.amount_received) {
+      this.activeOrders.filter((o) => o.orderId === order.orderId);
+    }
+  }
+
+  onDepositAccepted(deposit) {
+    for (let i = 0; i < deposit.notes.length; i++) {
+      this.noteData[deposit.depositToken].push(deposit.notes[i]);
+      // priv key should have already been added to this.address2ko when order was made
+    }
+
+    this.activeDeposits.filter((d) => d.deposit_id == deposit.deposit_id);
+  }
+
+  onWithdrawalAccepted(withdrawal) {
+    this.noteData[withdrawal.withdraw_token].push(withdrawal.refundNote);
+  }
+
+  // * GENERATING NEW NOTES =====================================================
+  _generateNewNotes(amounts, blindings, address_pks, depositToken) {
+    let notes = [];
+    for (let i = 0; i < amounts.length; i++) {
+      let note = new Note(
+        address_pks[i],
+        depositToken,
+        amounts[i],
+        blindings[i],
+        0 // the real index is set in executeDeposit()
+      );
+      notes.push(note);
+    }
+
+    return notes;
+  }
+
+  // TODO: This function should make as many generic amounts (1000, 5000, 20000, etc) as possible to better hide
+  _getRandomAmounts(amount, numNotes) {
+    let amounts = [];
+
+    let currentSum = 0n;
+    for (let i = 0; i < numNotes - 1; i++) {
+      let randAmount = bigInt(amount).divide(numNotes).subtract(123n).value;
+      amounts.push(randAmount);
+      currentSum += randAmount;
+    }
+
+    amounts.push(amount - currentSum);
+
+    return amounts;
+  }
+
+  // * DEPRECATED ==========================================================
   generateOutputNotes(amount, token, Kv, Ks, r) {
     if (!this.noteData[token]) {
       console.log("No notes to spend");
@@ -76,24 +323,26 @@ module.exports = class User {
 
     //? Add the market maker note (later possibly multiple and for different market makers)
     let hiddenValues1 = this.hideValuesForRecipient(Kv, amount, r);
-    let Ko1 = generateOneTimeAddress(Kv, Ks, r);
+    let Ko1 = this.generateOneTimeAddress(Kv, Ks, r);
 
     // let comm1 = newCommitment(amount, hiddenValues1.yt);
     let comm1 = pedersen([amount, hiddenValues1.yt]);
-    let note1 = new Note(Ko1, comm1, token);
+    let addr = "0x".concat(Ko1.encode("hex", true).slice(2));
+    let note1 = new Note(addr, comm1, token);
 
     notesOut.push(note1);
     amountsOut.push(amount);
     blindingsOut.push(hiddenValues1.yt);
 
     //? Add the exchange fee note ===========================
-    let dummyKey = [1n, 0n];
+    let dummyKey = ec.g.mul(amount); // TODO update this
     let hiddenValues2 = this.hideValuesForRecipient(dummyKey, feeAmount, r);
-    let Ko2 = generateOneTimeAddress(dummyKey, Ks, r);
+    let Ko2 = this.generateOneTimeAddress(dummyKey, Ks, r);
 
     // let comm2 = newCommitment(feeAmount, hiddenValues2.yt);
     let comm2 = pedersen([feeAmount, hiddenValues2.yt]);
-    let note2 = new Note(Ko2, comm2, token);
+    let addr2 = "0x".concat(Ko2.encode("hex", true).slice(2));
+    let note2 = new Note(addr2, comm2, token);
 
     notesOut.push(note2);
     amountsOut.push(feeAmount);
@@ -102,15 +351,16 @@ module.exports = class User {
     //? Add the refund note
     // User send himself a refund note with the leftover funds
     let hiddenValues3 = this.hideValuesForRecipient(
-      this.pubViewKey,
+      this.pubViewKey.getPublic(),
       inputSum - amount - feeAmount,
       r
     );
-    let Ko3 = generateOneTimeAddress(this.pubViewKey, this.pubSpendKey, r);
+    let Ko3 = this.generateOneTimeAddress(this.pubViewKey, this.pubSpendKey, r);
 
     // let comm3 = newCommitment(inputSum - amount - feeAmount, hiddenValues3.yt);
     let comm3 = pedersen([inputSum - amount - feeAmount, hiddenValues3.yt]);
-    let note3 = new Note(Ko3, comm3, token);
+    let addr3 = "0x".concat(addr3.encode("hex", true).slice(2));
+    let note3 = new Note(addr3, comm3, token);
 
     notesOut.push(note3);
     amountsOut.push(inputSum - amount - feeAmount);
@@ -136,189 +386,60 @@ module.exports = class User {
 
   //* ===========================================================================
 
-  addNotes(notes, amounts, blindings, kos) {
-    if (!notes.length) {
+  addNote(note, privKey) {
+    if (!note || !privKey) {
       return;
     }
 
-    for (let i = 0; i < notes.length; i++) {
-      const note = notes[i];
-      const amount = amounts[i];
-      const blinding = blindings[i];
-      const ko = kos[i];
-      if (!this.noteData[note.token]) {
-        this.noteData[note.token] = [];
-      }
-      this.noteData[note.token].push({ note, amount, blinding, ko });
+    if (!this.noteData[note.token]) {
+      this.noteData[note.token] = [];
     }
+    this.noteData[note.token].push(note);
+    this.address2ko[note.address_pk()] = privKey;
   }
 
-  // todo figure out how remove notes should work
-  removeNotes(notes) {}
-
-  //* HELPERS =======================================================
+  //* HELPERS ===========================================================================
 
   generateSubaddress(i) {
-    // Ksi = Ks + H(kv, i)*G   == (ks + H(kv, i))* G
-    // Kvi = kv*Ksi         == kv*(ks + H(kv, i))* G
-
-    let ksi = this.privSpendKey + pedersen([this.privViewKey, i]);
-    let Ksi = Secp256k1.mulG(Secp256k1.uint256(ksi));
-    Ksi = Secp256k1.AtoJ(Ksi[0], Ksi[1]);
-    const Kvi = Secp256k1.ecmul(Ksi, Secp256k1.uint256(this.privViewKey));
-    return { Kvi: Secp256k1.JtoA(Kvi), Ksi: Secp256k1.JtoA(Ksi) };
+    return _generateSubaddress(this.privSpendKey, this.privViewKey, i);
   }
 
   subaddressPrivKeys(i) {
-    // ksi = ks + H(kv, i)
-    // kvi = kv*ksi
-
-    const ksi = this.privSpendKey + pedersen([this.privViewKey, i]);
-    const kvi = this.privViewKey * ksi;
-
-    return { ksi, kvi };
+    return _subaddressPrivKeys(this.privSpendKey, this.privViewKey, i);
   }
 
-  generateOneTimeAddress(pub_view_key, pub_spend_key, r) {
-    // Ko =  H(r * Kv)G + Ks
+  generateOneTimeAddress(r, ith = 1) {
+    let { Kvi, Ksi } = this.generateSubaddress(ith);
 
-    let rKv = ecMul(pub_view_key, r);
-    rKv.push(0);
-    let h = pedersen(rKv);
-
-    return ecAdd(ecMul(G, h), pub_spend_key);
+    return _generateOneTimeAddress(Kvi, Ksi, r);
   }
 
-  oneTimeAddressPrivKey(pub_view_key, priv_spend_key, r) {
-    // ko = H(r * Kv) + ks
-    let rKv = ecMul(pub_view_key, r);
-    rKv.push(0);
-    let h = pedersen(rKv);
-    return h + priv_spend_key;
+  oneTimeAddressPrivKey(r, ith = 1) {
+    let { Kvi, Ksi } = this.generateSubaddress(ith);
+    let { ksi, kvi } = this.subaddressPrivKeys(ith);
+
+    return _oneTimeAddressPrivKey(Kvi, ksi, r);
   }
 
-  // Amounts are multiplied by the amplification rate (1 ETH = 10**9)
-  // Prices are multiplied by the number of decimals (10 ** (decimals))
-  calculateAmounts(inputAmount, tokenInPrice, tokenOutPrice, accuracy = 9) {
-    // the calculation is accurate to 2*accuracy -1 digits
-
-    // let priceRatio =
-    //   (tokenInPrice * 10n ** (2n * bigInt(accuracy).value)) / tokenOutPrice;
-    let priceRatio =
-      (tokenOutPrice * 10n ** (2n * bigInt(accuracy).value)) / tokenInPrice;
-
-    // let outputAmount =
-    //   (inputAmount * priceRatio) / 10n ** (2n * bigInt(accuracy).value) + 1n;
-    let outputAmount =
-      (inputAmount * 10n ** (2n * bigInt(accuracy).value)) / priceRatio;
-
-    const diff = outputAmount * tokenOutPrice - inputAmount * tokenInPrice;
-
-    return { outputAmount, diff };
-  }
-
-  pedersenToPoseidon() {
-    let converted = {};
-    for (const [key, value] of Object.entries(this.noteData)) {
-      let notes = value.map((noteData) => {
-        return {
-          note: new Note(
-            noteData.note.address,
-            pedersen([noteData.amount, noteData.blinding]),
-            noteData.note.token,
-            noteData.note.index
-          ),
-          amount: noteData.amount,
-          blinding: noteData.blinding,
-          ko: noteData.ko,
-        };
-      });
-
-      converted[key] = notes;
-    }
-
-    this.noteData = converted;
-  }
-
-  //* RETRIEVAL FUNCTIONS =======================================================
-
-  // Each output of a transaction should have this hiding
+  // Hides the values for the recipient
   hideValuesForRecipient(recipient_Kv, amount, r) {
-    // TODO: Add something so that the blindind is always different
-    // r is the transaction priv key (randomly generated)
-    // yt = H("comm_mask", H(rKv, t))  (NOTE: t is used to make the values unique and we are omitting it for now)
-    // amount_t = bt XOR8 H("amount_mask", H(rKv, t))  -> (where bt is the 64 bit amount of the note)
-
-    recipient_Kv = Secp256k1.AtoJ(recipient_Kv[0], recipient_Kv[1]);
-    let rKv = Secp256k1.ecmul(recipient_Kv, Secp256k1.uint256(r));
-    rKv = Secp256k1.JtoA(rKv);
-
-    let hash8 = trimHash(poseidon([AMOUNT_MASK, poseidon(rKv)]), 64);
-
-    let yt = poseidon([COMMITMENT_MASK, poseidon(rKv)]); // this is the blinding used in the commitment
-    yt = trimHash(yt, 250);
-    let hiddentAmount = bigInt(amount).xor(hash8).value;
-
-    return { yt, hiddentAmount };
+    return _hideValuesForRecipient(recipient_Kv, amount, r);
   }
 
   // Used to reveal the blindings and amounts of the notes addressed to this user's ith subaddress
   revealHiddenValues(rG, hiddenAmount, ith = 1) {
-    // yt = H("comm_mask", H(rG*kv, t))
-    // amount_t = bt XOR8 H("amount_mask", H(rG*kv, t))
-
-    const privKeys = this.subaddressPrivKeys(ith);
-
-    rG = Secp256k1.AtoJ(rG[0], rG[1]);
-
-    let rKv = Secp256k1.ecmul(rG, Secp256k1.uint256(privKeys.kvi));
-    rKv = Secp256k1.JtoA(rKv);
-
-    let yt = poseidon([COMMITMENT_MASK, poseidon(rKv)]); // this is the blinding used in the commitment
-    yt = trimHash(yt, 250);
-
-    let hash8 = trimHash(poseidon([AMOUNT_MASK, poseidon(rKv)]), 64);
-
-    let amount = bigInt(hiddenAmount).xor(hash8).value;
-
-    return { yt, amount };
+    return _revealHiddenValues(
+      rG,
+      hiddenAmount,
+      this.privSpendKey,
+      this.privViewKey,
+      ith
+    );
   }
 
   // Checks if the transaction is addressed to this user's its subaddress
   checkOwnership(rKsi, Ko, ith = 1) {
-    // Ko is defined as H(rKvi)G + Ksi
-    // kv*rKsi = rKvi
-    // Ks' = Ko - H(rKvi,0)G
-    // If Ks' === Ksi (calculated Ks' equals his subbadress Ksi) than its addressed to him
-
-    if (Ko.length == 2) {
-      Ko = Secp256k1.AtoJ(Ko[0], Ko[1]);
-    }
-    if (rKsi.length == 2) {
-      rKsi = Secp256k1.AtoJ(rKsi[0], rKsi[1]);
-    }
-
-    const subaddress = this.generateSubaddress(ith);
-
-    let rKvi = Secp256k1.ecmul(rKsi, Secp256k1.uint256(this.privViewKey));
-    rKvi = Secp256k1.JtoA(rKvi);
-
-    let h = trimHash(poseidon(rKvi), 250);
-    let rGKvi = Secp256k1.mulG(Secp256k1.uint256(h));
-    let rGKvi_neg = Secp256k1.negPoint(rGKvi);
-    rGKvi_neg = Secp256k1.AtoJ(rGKvi_neg[0], rGKvi_neg[1]);
-
-    let Ks_prime = Secp256k1.ecadd(Ko, rGKvi_neg);
-    Ks_prime = Secp256k1.JtoA(Ks_prime);
-
-    // console.log(bigInt(Ks_prime[0].toString()).value);
-    // console.log(bigInt(subaddress.Ksi[0].toString()));
-    return !!(
-      bigInt(Ks_prime[0].toString()).value ===
-        bigInt(subaddress.Ksi[0].toString()).value &&
-      bigInt(Ks_prime[1].toString()).value ===
-        bigInt(subaddress.Ksi[1].toString()).value
-    );
+    return _checkOwnership(rKsi, Ko, this.privSpendKey, this.privViewKey, ith);
   }
 
   //* TESTS =======================================================

@@ -18,8 +18,7 @@ from invisible_swaps.helpers.utils import (
     sum_notes,
     hash_note,
 )
-
-# TODO: Replace the dictionary prev and new_values with hashes instead of amounts
+from unshielded_swaps.constants import ZERO_LEAF
 
 # ! NOTE DICT UPDATES FOR SWAPS =====================================================
 
@@ -40,19 +39,17 @@ func update_note_dict{note_dict : DictAccess*}(
 end
 
 func update_one{note_dict : DictAccess*}(note_in : Note, refund_note : Note, swap_note : Note):
-    # todo use hashes instead of amounts
-
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = refund_note.index
-    assert note_dict_ptr.prev_value = note_in.amount
-    assert note_dict_ptr.new_value = refund_note.amount
+    assert note_dict_ptr.prev_value = note_in.hash
+    assert note_dict_ptr.new_value = refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = swap_note.index
-    assert note_dict_ptr.prev_value = 0  # Could be replaced with another zero value
-    assert note_dict_ptr.new_value = swap_note.amount
+    assert note_dict_ptr.prev_value = ZERO_LEAF
+    assert note_dict_ptr.new_value = swap_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
@@ -64,13 +61,13 @@ func update_two{note_dict : DictAccess*}(
 ):
     let note_dict_ptr = note_dict
     note_dict_ptr.key = refund_note.index
-    note_dict_ptr.prev_value = note_in1.amount
-    note_dict_ptr.new_value = refund_note.amount
+    note_dict_ptr.prev_value = note_in1.hash
+    note_dict_ptr.new_value = refund_note.hash
 
     let note_dict_ptr = note_dict + DictAccess.SIZE
     note_dict_ptr.key = swap_note.index
-    note_dict_ptr.prev_value = note_in2.amount
-    note_dict_ptr.new_value = swap_note.amount
+    note_dict_ptr.prev_value = note_in2.hash
+    note_dict_ptr.new_value = swap_note.hash
 
     let note_dict = note_dict + 2 * DictAccess.SIZE
 
@@ -97,8 +94,8 @@ func _update_multi_inner{note_dict : DictAccess*}(notes_in_len : felt, notes_in 
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = note_in.index
-    assert note_dict_ptr.prev_value = note_in.amount
-    assert note_dict_ptr.new_value = 0
+    assert note_dict_ptr.prev_value = note_in.hash
+    assert note_dict_ptr.new_value = ZERO_LEAF
 
     let note_dict = note_dict + DictAccess.SIZE
 
@@ -119,11 +116,11 @@ func deposit_note_dict_updates{note_dict : DictAccess*}(
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = deposit_note.index
     assert note_dict_ptr.prev_value = 0
-    assert note_dict_ptr.new_value = deposit_note.amount
+    assert note_dict_ptr.new_value = deposit_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
-    return _update_multi_inner(deposit_notes_len - 1, &deposit_notes[1])
+    return deposit_note_dict_updates(deposit_notes_len - 1, &deposit_notes[1])
 end
 
 func withdraw_note_dict_updates{note_dict : DictAccess*}(
@@ -133,21 +130,15 @@ func withdraw_note_dict_updates{note_dict : DictAccess*}(
         return ()
     end
 
-    if withdraw_notes_len == 1:
-        return _update_one_withdraw(withdraw_notes[0], refund_note)
-    end
-
     _update_one_withdraw(withdraw_notes[0], refund_note)
     return _update_multi_inner_withdraw(withdraw_notes_len - 1, &withdraw_notes[1])
 end
 
 func _update_one_withdraw{note_dict : DictAccess*}(note_in : Note, refund_note : Note):
-    # todo use hashes instead of amounts
-
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = note_in.index
-    assert note_dict_ptr.prev_value = note_in.amount
-    assert note_dict_ptr.new_value = refund_note.amount
+    assert note_dict_ptr.prev_value = note_in.hash
+    assert note_dict_ptr.new_value = refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
@@ -163,7 +154,7 @@ func _update_multi_inner_withdraw{note_dict : DictAccess*}(notes_in_len : felt, 
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = note_in.index
-    assert note_dict_ptr.prev_value = note_in.amount
+    assert note_dict_ptr.prev_value = note_in.hash
     assert note_dict_ptr.new_value = 0
 
     let note_dict = note_dict + DictAccess.SIZE

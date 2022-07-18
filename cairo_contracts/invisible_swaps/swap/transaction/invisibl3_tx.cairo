@@ -1,4 +1,4 @@
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.dict import dict_new, dict_write, dict_update, dict_squash, dict_read
@@ -17,9 +17,10 @@ from invisible_swaps.helpers.range_checks import range_checks_
 from invisible_swaps.helpers.verify_sums import validate_fee_taken, take_fee
 from invisible_swaps.helpers.partial_fill_helpers import (
     partial_fill_updates,
-    update_note_dict,
     get_prev_fill_note_hash,
 )
+from invisible_swaps.signatures.signature import verify_signatures
+from invisible_swaps.helpers.dict_updates import update_note_dict
 from invisible_swaps.swap.tx_hash.tx_hash import hash_transaction
 from invisible_swaps.helpers.utils import (
     Invisibl3Order,
@@ -28,11 +29,13 @@ from invisible_swaps.helpers.utils import (
     sum_notes,
     hash_note,
 )
+from unshielded_swaps.constants import ZERO_LEAF
 
 func execute_invisibl3_transaction{
     output_ptr,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
+    ecdsa_ptr : SignatureBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -48,10 +51,9 @@ func execute_invisibl3_transaction{
 ):
     alloc_locals
 
-    # * ORDER A ============================================================
+    # * ORDER ============================================================
     # If this is not the first fill return the last partial fill note hash else return 0
     let (prev_fill_hash : felt) = get_prev_fill_note_hash(order_hash)
-    # let (prev_fill_hash_B : felt) = get_prev_fill_note_hash(order_B_hash)
 
     if prev_fill_hash == 0:
         # ! if this is the first fill
@@ -78,6 +80,7 @@ end
 func first_fill{
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
+    ecdsa_ptr : SignatureBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -94,7 +97,7 @@ func first_fill{
     alloc_locals
 
     # ? verify the sums match the refund and spend amounts
-    let (sum_inputs : felt) = sum_notes(notes_in_len, notes_in, 0)
+    let (sum_inputs : felt) = sum_notes(notes_in_len, notes_in, invisibl3_order.token_spent, 0)
     assert sum_inputs - refund_note.amount = invisibl3_order.amount_spent
 
     # ? Verify all values are in a certain range
@@ -116,7 +119,7 @@ func first_fill{
 
     local swap_note_idx : felt
     %{
-        ids.swap_note_idx = order_indexes["swap_note_idx"]
+        ids.swap_note_idx = int(order_indexes["swap_note_idx"])
         if ids.notes_in_len > 1:
             note_in2_idx = memory[ids.notes_in.address_ + NOTE_SIZE + INDEX_OFFSET]
             assert ids.swap_note_idx == note_in2_idx, "something funky happening with the swap note index"
@@ -132,8 +135,14 @@ func first_fill{
         swap_note_idx,
     )
 
-    # todo verify signature !!!!
+    # ? verify the signatures for every note
+    %{
+        signatures = current_order["signatures"]
+        assert len(signatures) == ids.notes_in_len, "should have one signature for every note"
+    %}
+    verify_signatures(order_hash, notes_in_len, notes_in)
 
+    # ? update the note dict with the new notes
     update_note_dict{note_dict=note_dict}(notes_in_len, notes_in, refund_note, swap_note)
 
     # ! Only executed  if the order was filled partialy not completely ------------------
@@ -147,12 +156,12 @@ func first_fill{
     )
 
     local new_fill_refund_note_idx : felt
-    %{ ids.new_fill_refund_note_idx = order_indexes["partial_fill_idx"] %}
+    %{ ids.new_fill_refund_note_idx = int(order_indexes["partial_fill_idx"]) %}
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = new_fill_refund_note_idx
-    assert note_dict_ptr.prev_value = 0
-    assert note_dict_ptr.new_value = new_fill_refund_note.amount
+    assert note_dict_ptr.prev_value = ZERO_LEAF
+    assert note_dict_ptr.new_value = new_fill_refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
@@ -162,6 +171,7 @@ end
 func later_fills{
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
+    ecdsa_ptr : SignatureBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -177,25 +187,21 @@ func later_fills{
     # ? This is the note that was refunded (leftover) from the previous fill
     local prev_fill_refund_note : Note
     %{
-        ADDRESS_PK_OFFSET = ids.Note.address_pk
-        TOKEN_OFFSET = ids.Note.token
-        AMOUNT_OFFSET = ids.Note.amount
-        BLINDING_FACTOR_OFFSET = ids.Note.blinding_factor
-        INDEX_OFFSET = ids.Note.index
-
         note_data = prev_fill_notes[ids.order_hash]
         address_pk = note_data["address_pk"]
         token = note_data["token"]
         amount = note_data["amount"]
         blinding_factor = note_data["blinding_factor"]
         index = note_data["index"]
+        note_hash = note_data["hash"]
 
         addr_ = ids.prev_fill_refund_note.address_
-        memory[addr_ + ADDRESS_PK_OFFSET] = address_pk
-        memory[addr_ + TOKEN_OFFSET] = token
-        memory[addr_ + AMOUNT_OFFSET] = amount
-        memory[addr_ + BLINDING_FACTOR_OFFSET] = blinding_factor
-        memory[addr_ + INDEX_OFFSET] = index
+        memory[addr_ + ADDRESS_PK_OFFSET] = int(address_pk)
+        memory[addr_ + TOKEN_OFFSET] = int(token)
+        memory[addr_ + AMOUNT_OFFSET] = int(amount)
+        memory[addr_ + BLINDING_FACTOR_OFFSET] = int(blinding_factor)
+        memory[addr_ + INDEX_OFFSET] = int(index)
+        memory[addr_ + HASH_OFFSET] = int(note_hash)
     %}
 
     # ? Assert that this note was previously refunded for this order
@@ -221,7 +227,7 @@ func later_fills{
     assert_le(spend_amount, prev_fill_refund_note.amount)
 
     local swap_note_idx : felt
-    %{ ids.swap_note_idx = order_indexes["swap_note_idx"] %}
+    %{ ids.swap_note_idx = int(order_indexes["swap_note_idx"]) %}
 
     # ? This is the note receiveing the funds of this swap
     let (swap_note : Note) = construct_new_note(
@@ -234,8 +240,8 @@ func later_fills{
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = prev_fill_refund_note.index
-    assert note_dict_ptr.prev_value = prev_fill_refund_note.amount
-    assert note_dict_ptr.new_value = swap_note.amount
+    assert note_dict_ptr.prev_value = prev_fill_refund_note.hash
+    assert note_dict_ptr.new_value = swap_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
@@ -251,8 +257,8 @@ func later_fills{
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = new_fill_refund_note.index
-    assert note_dict_ptr.prev_value = 0
-    assert note_dict_ptr.new_value = new_fill_refund_note.amount
+    assert note_dict_ptr.prev_value = ZERO_LEAF
+    assert note_dict_ptr.new_value = new_fill_refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 

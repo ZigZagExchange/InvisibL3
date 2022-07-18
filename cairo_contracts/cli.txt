@@ -1,6 +1,6 @@
 cairo-compile puzzle.cairo --output puzzle_compiled.json
- --cairo_path /home/snojj/Desktop/Cairo/InvisibL3/cairo_contracts
-
+--cairo_path /home/snojj/Desktop/Cairo/InvisibL3/cairo_contracts
+ 
 cairo-run --program=puzzle_compiled.json \
     --print_output --layout=small \
     --program_input=puzzle_input.json

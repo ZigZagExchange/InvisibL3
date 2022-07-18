@@ -14,6 +14,7 @@ struct Note:
     member amount : felt
     member blinding_factor : felt
     member index : felt
+    member hash : felt
 end
 
 struct Signature:
@@ -37,13 +38,26 @@ end
 func hash_note{pedersen_ptr : HashBuiltin*}(note : Note) -> (hash : felt):
     alloc_locals
 
-    let (commitment : felt) = hash2{hash_ptr=pedersen_ptr}(note.amount, note.blinding_factor)
+    let (note_hash : felt) = _hash_note_inputs(
+        note.address_pk, note.token, note.amount, note.blinding_factor
+    )
+
+    assert note_hash = note.hash
+
+    return (note_hash)
+end
+
+# & This function is used to generate a hash of a new note before actually creating the note
+func _hash_note_inputs{pedersen_ptr : HashBuiltin*}(
+    address_pk : felt, token : felt, amount : felt, blinding_factor : felt
+) -> (hash : felt):
+    let (commitment : felt) = hash2{hash_ptr=pedersen_ptr}(amount, blinding_factor)
 
     let hash_ptr = pedersen_ptr
     with hash_ptr:
         let (hash_state_ptr) = hash_init()
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, note.address_pk)
-        let (hash_state_ptr) = hash_update_single(hash_state_ptr, note.token)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, address_pk)
+        let (hash_state_ptr) = hash_update_single(hash_state_ptr, token)
         let (hash_state_ptr) = hash_update_single(hash_state_ptr, commitment)
 
         let (res) = hash_finalize(hash_state_ptr)
@@ -67,10 +81,12 @@ func sum_notes(notes_len : felt, notes : Note*, token : felt, sum : felt) -> (su
     return sum_notes(notes_len - 1, &notes[1], token, sum)
 end
 
-func construct_new_note(
+func construct_new_note{pedersen_ptr : HashBuiltin*}(
     address_pk : felt, token : felt, amount : felt, blinding_factor : felt, index : felt
 ) -> (note : Note):
     alloc_locals
+
+    let (note_hash : felt) = _hash_note_inputs(address_pk, token, amount, blinding_factor)
 
     let new_note : Note = Note(
         address_pk=address_pk,
@@ -78,6 +94,7 @@ func construct_new_note(
         amount=amount,
         blinding_factor=blinding_factor,
         index=index,
+        hash=note_hash,
     )
 
     return (new_note)

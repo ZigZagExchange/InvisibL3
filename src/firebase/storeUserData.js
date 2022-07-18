@@ -8,8 +8,17 @@ const {
   updateDoc,
   setDoc,
 } = require("firebase/firestore/lite");
-const { Note } = require("../notes/noteUtils.js");
-const User = require("../notes/User");
+const { Note } = require("../notes/Notes.js");
+const User = require("../notes/Invisibl3User");
+
+const {
+  getKeyPair,
+  getStarkKey,
+  getKeyPairFromPublicKey,
+  sign,
+  verify,
+  ec,
+} = require("starknet/utils/ellipticCurve");
 
 const bigInt = require("big-integer");
 const Secp256k1 = require("@enumatech/secp256k1-js");
@@ -21,11 +30,13 @@ async function storeNewUser(user) {
     id: user.id.toString(),
     kv: user.privViewKey.toString(),
     ks: user.privSpendKey.toString(),
-    Kv: user.pubViewKey.toString(),
-    Ks: user.pubSpendKey.toString(),
+    Kv: user.pubViewKey.getPublic(true, "hex"),
+    Ks: user.pubSpendKey.getPublic(true, "hex"),
     noteData: noteDataToJSON(user.noteData),
+    address2ko: JSON.stringify(user.address2ko, (key, value) => {
+      return typeof value === "bigint" ? value.toString() : value;
+    }),
   });
-
   let userIds_ = doc(db, "users", "userIds");
   let userIds = (await getDoc(userIds_)).data();
   let nUsers = userIds.nUsers;
@@ -34,6 +45,42 @@ async function storeNewUser(user) {
     [nUsers]: user.id.toString(),
   });
 }
+
+async function fetchStoredUser(userId) {
+  const userDoc = await getDoc(doc(db, "users", userId.toString()));
+  const userData = userDoc.data();
+  const user = new User(
+    bigInt(userId).value,
+    bigInt(userData.kv).value,
+    bigInt(userData.ks).value
+  );
+  user.noteData = JSONToNoteData(userData.noteData);
+  user.address2ko = JSON.parse(userData.address2ko, (key, value) => {
+    return typeof value === "string" ? bigInt(value).value : value;
+  });
+
+  return user;
+}
+
+async function fetchUserIds() {
+  const userIds = await getDoc(doc(db, "users", "userIds"));
+  return userIds.data();
+}
+
+async function fetchAllTokens() {
+  const collectionRef = collection(db, "tokens");
+
+  const docs = await getDocs(collectionRef);
+  const tokenPrices = {};
+  docs.docs.forEach((doc) => {
+    tokenPrices[doc.id] = bigInt(
+      doc.data().price * 10 ** doc.data().decimals
+    ).value;
+  });
+  return tokenPrices;
+}
+
+// TREE ====================================================
 
 async function addNoteToTree(note, idx = null) {
   let index = idx ?? (await getNextNoteIdx());
@@ -106,65 +153,50 @@ async function addInnerNodes(innerPos, innerHashes) {
 //   }
 // }
 
-async function fetchStoredUser(userId) {
-  const userDoc = await getDoc(doc(db, "users", userId.toString()));
-  const userData = userDoc.data();
-  const user = new User(
-    bigInt(userId).value,
-    bigInt(userData.kv).value,
-    bigInt(userData.ks).value
-  );
-  user.noteData = JSONToNoteData(userData.noteData);
-
-  return user;
-}
-
-async function fetchUserIds() {
-  const userIds = await getDoc(doc(db, "users", "userIds"));
-  return userIds.data();
-}
-
-async function fetchAllTokens() {
-  const collectionRef = collection(db, "tokens");
-
-  const docs = await getDocs(collectionRef);
-  const tokenPrices = {};
-  docs.docs.forEach((doc) => {
-    tokenPrices[doc.id] = bigInt(
-      doc.data().price * 10 ** doc.data().decimals
-    ).value;
-  });
-  return tokenPrices;
-}
-
 // //? HELPERS ===================
 
 function noteDataToJSON(noteData) {
-  return JSON.stringify(noteData, (key, value) => {
-    return typeof value === "bigint" ? value.toString() : value;
-  });
+  let jsonObject = {};
+
+  for (const [key, nData] of Object.entries(noteData)) {
+    jsonObject[key] = nData.map((noteD) => {
+      // noteD.note.address_pk = noteD.note.address_pk.encode("hex", true);
+
+      return JSON.stringify(noteD, (key, value) => {
+        return typeof value === "bigint" ? value.toString() : value;
+      });
+    });
+  }
+  return jsonObject;
 }
 
 function JSONToNoteData(jsonString) {
-  return JSON.parse(jsonString, (k, value) => {
-    if (k === "address") {
-      return value.map((v) => Secp256k1.uint256(v));
-    } else if (typeof value === "string") {
-      try {
-        return bigInt(value).value;
-      } catch {
-        if (value.startsWith("0x")) {
-          return BigInt(value, 16);
-        } else {
-          return BigInt("0x" + value, 16);
+  let noteData = {};
+
+  for (const [key, nData] of Object.entries(jsonString)) {
+    noteData[key] = [];
+    nData.forEach((noteD) => {
+      let noteInput = JSON.parse(noteD, (key, value) => {
+        if (key == "address_pk_") {
+          return value;
         }
-      }
-    }
-    if (k == "note") {
-      return new Note(value.address, value.commitment, value.token, value.idx);
-    }
-    return value;
-  });
+
+        return typeof value === "string" ? bigInt(value).value : value;
+      });
+
+      let note = new Note(
+        noteInput.address_pk_,
+        noteInput.token,
+        noteInput.amount,
+        noteInput.blinding,
+        noteInput.index
+      );
+
+      noteData[key].push(note);
+    });
+  }
+
+  return noteData;
 }
 
 module.exports = {

@@ -1,4 +1,4 @@
-const Tree = require("./tree.js");
+const Tree = require("./Tree.js");
 // const Transaction = require("./transaction2.js");
 
 const ZERO_HASH =

@@ -206,7 +206,7 @@ class LimitOrder {
   }
 
   logLimitOrder() {
-    console.log(this.limitOrderToJSON());
+    console.log(this.limitOrderToInputObject());
   }
 
   limitOrderToInputObject() {
