@@ -3,7 +3,7 @@ node_modules
 test/test_jubjub.js
 test/testFirebase.js
 
-
+invisible_backend/target
 
 firebaseConfig.js
 notes.txt

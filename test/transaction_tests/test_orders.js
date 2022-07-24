@@ -73,7 +73,7 @@ async function storeUsers() {
 
   storeNewUser(userA).then(console.log("stored"));
 }
-storeUsers();
+// storeUsers();
 
 async function fetchUsers() {
   const ids = await fetchUserIds();
@@ -191,22 +191,37 @@ async function test_swap() {
   );
 
   // =====================================================
+
+  let inp = {
+    order_A: order_A.toInputObject(),
+    order_B: order_B.toInputObject(),
+  };
+
+  let JSON_Output = JSON.stringify(inp, (key, value) => {
+    return typeof value === "bigint" ? value.toString() : value;
+  });
+
+  fs.writeFile("swapInput.json", JSON_Output, () => {});
+
   let feeTakenA = 10n;
   let feeTakenB = 20n;
+  let spend_amountA = 60_000n;
+  let spend_amountB = 120_000n;
+
   const swap1 = new InvisibleSwap(
     order_A,
     order_B,
-    amount_spent_A,
-    amount_spent_B,
+    spend_amountA,
+    spend_amountB,
     feeTakenA,
     feeTakenB
   );
 
-  let { swapNoteA, swapNoteB } = swap1.executeSwap();
+  // swap1.executeSwap();
 
-  console.log(swapNoteA, swapNoteB);
+  console.log("all good");
 }
-// test_swap();
+test_swap();
 
 async function test_partial_fills() {
   const ids = await fetchUserIds();
@@ -345,6 +360,8 @@ async function test_partial_fills() {
 
 //* CHECKS VALIDATING SWAPS AND UPDATING THE STATE (MERKLE TREE) =======================================
 async function full_swap_tests() {
+  let json_file_input = {};
+
   const ids = await fetchUserIds();
 
   const userA = await fetchStoredUser(ids["0"]);
@@ -356,14 +373,11 @@ async function full_swap_tests() {
   // & We must store the state tree at the beginning of the batch for the merkle proofs
   let batchInitTree = treeFromUsers([userA, userB, userC], [0, 1, 1]);
 
+  json_file_input["init_notes"] = batchInitTree.leafNodes;
+
   let tree = batchInitTree.clone();
   let preimage = {};
   let updatedNoteHashes = {};
-
-  // console.log(
-  //   tree.leafNodes.map((v, i) => i.toString() + "<->" + v.toString()),
-  //   "\n===============================\n"
-  // );
 
   // ? ORDERS ===================================================
 
@@ -427,6 +441,8 @@ async function full_swap_tests() {
 
   let swapInputs = [swapABJson, swapACJson];
 
+  json_file_input["swaps"] = swapInputs;
+
   let finalizedPreimages = getFinalizedPreimages(
     tree,
     swapACResult.updatedNoteHashes
@@ -447,9 +463,14 @@ async function full_swap_tests() {
 
   fs.writeFile("myjsonfile.json", JSON_Output, () => {});
 
+  let JSON_Output2 = JSON.stringify(json_file_input, (key, value) => {
+    return typeof value === "bigint" ? value.toString() : value;
+  });
+  fs.writeFile("swapInput.json", JSON_Output2, () => {});
+
   console.timeEnd("preimages");
 }
-// full_swap_tests();
+full_swap_tests();
 
 // ! HELPERS ============================================================
 
@@ -479,8 +500,8 @@ function treeFromUsers(users, tokens) {
     const token = tokens[i];
 
     let userNoteData = user.noteData[token];
-    for (let j = 0; j < userNoteData.notes.length; j++) {
-      const note = userNoteData.notes[j];
+    for (let j = 0; j < userNoteData.length; j++) {
+      const note = userNoteData[j];
       notes[note.index] = note.hash;
     }
   }

@@ -30,7 +30,7 @@ const InvisibleSwap = require("../../src/transactions/InvisibleSwap");
 const TransactionBatch = require("../../src/transactions/TransactionBatch");
 const { pedersen } = require("starknet/utils/hash");
 
-async function test_partial_fills() {
+async function test_tx_batch() {
   const ids = await fetchUserIds();
 
   const userA = await fetchStoredUser(ids["0"]);
@@ -39,6 +39,10 @@ async function test_partial_fills() {
 
   const batchInitTree = treeFromUsers([userA, userB, userC], [0, 1, 1]);
 
+  let jsonArgumentInput = {};
+
+  jsonArgumentInput["init_leaves"] = batchInitTree.leafNodes;
+
   // & TOKEN_0 = 2*TOKEN_1
   // & userA wants to swap 100_000 of TOKEN_0 for 200_000 of TOKEN_1
   // & userB wants to swap 120_000 of TOKEN_1 for 60_000 of TOKEN_0
@@ -46,7 +50,7 @@ async function test_partial_fills() {
 
   // =====================================================
   // * ORDER A
-  let nonce_A = 123;
+  let nonce_A = 123n;
   let expiration_timestamp_A = 1000;
   let token_spent_A = 0;
   let token_received_A = 1;
@@ -58,7 +62,7 @@ async function test_partial_fills() {
   let dest_received_address_A = ec.g.mul(1872461289123n);
   let blinding_seed_A = 89122142144n;
 
-  const order_A = userA.makeLimitOrder(
+  const orderARes = userA.makeLimitOrder(
     nonce_A,
     expiration_timestamp_A,
     token_spent_A,
@@ -71,9 +75,12 @@ async function test_partial_fills() {
     blinding_seed_A
   );
 
+  let order_A = orderARes.order;
+  let signatures_A = orderARes.signatures;
+
   // =====================================================
   // * ORDER B
-  let nonce_B = 68;
+  let nonce_B = 68n;
   let expiration_timestamp_B = 1000;
   let token_spent_B = 1;
   let token_received_B = 0;
@@ -85,7 +92,7 @@ async function test_partial_fills() {
   let dest_received_address_B = ec.g.mul(138964184218n);
   let blinding_seed_B = 238956583749235n;
 
-  const order_B = userB.makeLimitOrder(
+  const orderBRes = userB.makeLimitOrder(
     nonce_B,
     expiration_timestamp_B,
     token_spent_B,
@@ -98,9 +105,12 @@ async function test_partial_fills() {
     blinding_seed_B
   );
 
+  let order_B = orderBRes.order;
+  let signatures_B = orderBRes.signatures;
+
   // =====================================================
   // * ORDER C
-  let nonce_C = 311;
+  let nonce_C = 311n;
   let expiration_timestamp_C = 800;
   let token_spent_C = 1;
   let token_received_C = 0;
@@ -110,9 +120,9 @@ async function test_partial_fills() {
   // These should be calculated by the user
   let dest_spent_address_C = ec.g.mul(71538486941123n);
   let dest_received_address_C = ec.g.mul(452739126384n);
-  let blinding_seed_C = 3891461497291094;
+  let blinding_seed_C = 3891461497291094n;
 
-  const order_C = userC.makeLimitOrder(
+  const orderCRes = userC.makeLimitOrder(
     nonce_C,
     expiration_timestamp_C,
     token_spent_C,
@@ -124,6 +134,9 @@ async function test_partial_fills() {
     dest_received_address_C,
     blinding_seed_C
   );
+
+  let order_C = orderCRes.order;
+  let signatures_C = orderCRes.signatures;
 
   // =====================================================
   //* SWAP AB ------------------
@@ -160,7 +173,7 @@ async function test_partial_fills() {
   // =====================================================
   // * WITHDRAWAL C ------------------
 
-  let amountWithdrawnC = 80_000n;
+  let amountWithdrawnC = 70_000n;
   let tokenWithdrawnC = 1;
   let starkKeyC = getKeyPair(163548712n).getPublic();
 
@@ -242,16 +255,19 @@ async function test_partial_fills() {
 
   const transactionBatch = new TransactionBatch(batchInitTree);
 
+  jsonArgumentInput["swaps"] = [swapAB.toInputObject(), swapAC.toInputObject()];
+  jsonArgumentInput["signatures"] = [signatures_A, signatures_B, signatures_C];
+
   console.time("executeTransactionBatch");
   transactionBatch.executeTransaction(swapAB);
   transactionBatch.executeTransaction(swapAC);
-  transactionBatch.executeTransaction(withdrawalA);
-  transactionBatch.executeTransaction(deposit_A);
-  transactionBatch.executeTransaction(withdrawalB);
-  transactionBatch.executeTransaction(deposit_B);
-  transactionBatch.executeTransaction(withdrawalC);
-  transactionBatch.executeTransaction(deposit_C);
-  console.timeEnd("executeTransactionBatch");
+  // transactionBatch.executeTransaction(withdrawalA);
+  // transactionBatch.executeTransaction(deposit_A);
+  // transactionBatch.executeTransaction(withdrawalB);
+  // transactionBatch.executeTransaction(deposit_B);
+  // transactionBatch.executeTransaction(withdrawalC);
+  // transactionBatch.executeTransaction(deposit_C);
+  // console.timeEnd("executeTransactionBatch");
 
   console.time("finalizeBatch");
   transactionBatch.finalizeBatch();
@@ -269,20 +285,24 @@ async function test_partial_fills() {
   );
 
   fs.writeFile("transactionBatchInput.json", jsonOutput, console.log);
-}
-// test_partial_fills();
 
-console.log("Hello");
-console.time("10000 pedersens");
-for (let i = 0; i < 1000; i++) {
-  pedersen([123456n, 654321n]);
+  // ==================================================================================
+  let jsonOutput2 = JSON.stringify(jsonArgumentInput, (key, value) =>
+    typeof value === "bigint" ? value.toString() : value
+  );
+
+  fs.writeFile(
+    "../../invisible_backend/rust_input.json",
+    jsonOutput2,
+    console.log
+  );
 }
-console.timeEnd("10000 pedersens");
+test_tx_batch();
 
 function treeFromUsers(users, tokens) {
   // & takes an array of users and tokens and returns a merkle tree from the note data
 
-  let notes = new Array(32).fill(0); // 32 is hardcoded for now
+  let notes = new Array(32).fill(0n); // 32 is hardcoded for now
   for (let i = 0; i < users.length; i++) {
     const user = users[i];
     const token = tokens[i];
@@ -297,7 +317,7 @@ function treeFromUsers(users, tokens) {
 
   let zeroIdxs = [];
   for (let i = 0; i < notes.length; i++) {
-    if (notes[i] === 0) {
+    if (notes[i] == 0) {
       zeroIdxs.push(i);
     }
   }

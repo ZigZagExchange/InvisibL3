@@ -38,7 +38,13 @@ module.exports = class InvisibleSwap {
   }
 
   // * EXECUTING AND UPDATING STATE ====================================================
-  executeSwap(batchInitTree, tree, preimage, updatedNoteHashes) {
+  executeSwap(
+    batchInitTree,
+    tree,
+    preimage,
+    updatedNoteHashes,
+    jsonArgumentInput
+  ) {
     this._consistencyChecks();
 
     this._rangeChecks();
@@ -151,6 +157,10 @@ module.exports = class InvisibleSwap {
       newPartialRefundNoteB = this.orderB.partialFillRefundNote;
     }
 
+    //
+    //
+    //
+
     this.indexes = {
       order_A: {
         swap_note_idx: swapNoteA.index,
@@ -165,6 +175,10 @@ module.exports = class InvisibleSwap {
           : null,
       },
     };
+
+    //
+    //
+    //
 
     // ? Update the state for order A
     if (isFirstFillA) {
@@ -219,8 +233,6 @@ module.exports = class InvisibleSwap {
       swapNoteB,
       newPartialRefundNoteA,
       newPartialRefundNoteB,
-      preimage,
-      updatedNoteHashes,
     };
   }
 
@@ -299,8 +311,6 @@ module.exports = class InvisibleSwap {
         proof: { proof, proofPos },
       };
     }
-
-    return { preimage, updatedNoteHashes };
   }
 
   getInitStatePreimageProofsFirstFill(
@@ -414,7 +424,7 @@ module.exports = class InvisibleSwap {
       return acc + note.amount;
     }, 0n);
 
-    if (sumNotesA < order.refund_note + order.amount_spent) {
+    if (sumNotesA < order.refund_note.amount + order.amount_spent) {
       throw new Error("sum of inputs is to small for this order");
     }
   }

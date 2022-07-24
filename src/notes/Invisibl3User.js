@@ -118,9 +118,9 @@ module.exports = class User {
       refundNote
     );
 
-    order.sign_order(signingKeys);
+    let signatures = order.sign_order(signingKeys);
 
-    return order;
+    return { order, signatures };
   }
 
   makeWithdrawalOrder(withdrawAmount, withdrawToken, withdrawStarkKey) {
@@ -155,7 +155,7 @@ module.exports = class User {
         notesIn[0].index
       );
 
-      this.noteData[token_spent].push(refundNote);
+      this.noteData[withdrawToken].push(refundNote);
       this.address2ko[refundNote.address_pk()] = ko;
     }
 

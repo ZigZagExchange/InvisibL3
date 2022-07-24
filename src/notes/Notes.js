@@ -9,8 +9,6 @@ const randomBigInt = require("random-bigint");
 
 class Note {
   constructor(K, T, amount, blinding_factor, idx = 0) {
-    // Todo: maybe replace commitment with amount and blinding or all three
-
     this.index = idx;
     this.address_pk_ = parseAddressPk(K);
     this.token = T;

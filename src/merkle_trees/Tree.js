@@ -27,6 +27,26 @@ module.exports = class Tree {
     return tree;
   }
 
+  updateNode(leafHash, idx, proof) {
+    if (idx > this.count) {
+      console.log(idx);
+      console.log(this.count);
+      throw "update previous empty leaves first";
+    } else if (idx == this.count) {
+      this.count++;
+    } else {
+      // if this check is too expensive we can use a bloom filter
+      this.zeroIdxs = this.zeroIdxs.filter((el) => el !== idx);
+    }
+
+    if (leafHash == 0) {
+      this.zeroIdxs.push(idx);
+    }
+
+    this.updateLeafNodes(leafHash, idx);
+    return this.updateInnerNodes(leafHash, idx, proof);
+  }
+
   updateInnerNodes(leaf, idx, merkle_path) {
     // get position of affected inner nodes
     const depth = merkle_path.length;
@@ -52,24 +72,6 @@ module.exports = class Tree {
 
   updateLeafNodes(leafHash, idx) {
     this.leafNodes[idx] = leafHash;
-  }
-
-  updateNode(leafHash, idx, proof) {
-    if (idx > this.count) {
-      throw "update previous empty leaves first";
-    } else if (idx == this.count) {
-      this.count++;
-    } else {
-      // if this check is too expensive we can use a bloom filter
-      this.zeroIdxs = this.zeroIdxs.filter((el) => el !== idx);
-    }
-
-    if (leafHash == 0) {
-      this.zeroIdxs.push(idx);
-    }
-
-    this.updateLeafNodes(leafHash, idx);
-    return this.updateInnerNodes(leafHash, idx, proof);
   }
 
   getProof(leafIdx, depth = this.depth) {

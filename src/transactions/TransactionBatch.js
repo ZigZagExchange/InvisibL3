@@ -35,7 +35,7 @@ module.exports = class TransactionBatch {
     this.txInputObjects = [];
   }
 
-  executeTransaction(transaction) {
+  executeTransaction(transaction, jsonArgumentInput) {
     switch (transaction.transactionType) {
       case "withdrawal":
         this.numWithdrawals++;
@@ -63,7 +63,8 @@ module.exports = class TransactionBatch {
           this.batchInitTree,
           this.currentStateTree,
           this.preimage,
-          this.updatedNoteHashes
+          this.updatedNoteHashes,
+          jsonArgumentInput
         );
         break;
 
