@@ -1,8 +1,0 @@
-
-
-possible imporvements:
-
-note hash:
-  instead of pedersen([X.high, X.low]) use X.high +/* X.low and same for y
-  only make commitment once H([amount, bliding])
-

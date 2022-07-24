@@ -12,6 +12,7 @@ use num_traits::FromPrimitive;
 //
 use crate::notes::Note;
 
+use super::limit_order::LimitOrder;
 use super::swap::Transaction;
 //
 
@@ -153,6 +154,7 @@ impl Transaction for Deposit {
         partial_fill_tracker: &mut HashMap<u128, Note>,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+        orders_map: &mut HashMap<u128, LimitOrder>,
     ) {
         self.execute_deposit(batch_init_tree, tree, preimage, updated_note_hashes)
     }

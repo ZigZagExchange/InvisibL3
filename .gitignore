@@ -6,13 +6,9 @@ test/testFirebase.js
 invisible_backend/target
 
 firebaseConfig.js
-notes.txt
-design.txt
-tx_structure.txt
 
 circomlib/test
 
-rust/hello_cargo
-
+cairo_contracts/cli.txt
 
 snarkjs_tests/

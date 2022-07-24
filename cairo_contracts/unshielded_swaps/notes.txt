@@ -1,0 +1,21 @@
+
+-- for every token sum the fees from all transactions and update it only once at the end
+-- add possibility to share the fees among different specified users
+-- for every transaction:
+    > verify the fee ratio (in case of partial fills) is le what user signed for
+    > the fee is part of the order can't be paid seperately for simplicity
+
+-- For now only dealing with L2 vaults could later add L1 vaults (vaults = account spaces in my design)
+
+-- verify limit orders were signed by the sender and update the corresponding account dicts
+
+-- after all transactions and account dict updates, verify the merkle updates of the initial dict hashes
+
+-- figure out how order ids prevent replay attacks (order id = order hash)
+
+
+SWAP (settlement):
+
+-- check that amounts sold and baught are in range (0, UPPER BOUND)
+-- verify that token_spent_A == token_received_B and vice-versa
+-- 

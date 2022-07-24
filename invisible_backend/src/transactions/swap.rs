@@ -21,6 +21,8 @@ pub struct Swap {
     pub transaction_type: String,
     // pub order_a: LimitOrder,
     // pub order_b: LimitOrder,
+    pub order_a_id: u128,
+    pub order_b_id: u128,
     pub signatures_a: Vec<([u8; 32], [u8; 32])>,
     pub signatures_b: Vec<([u8; 32], [u8; 32])>,
     pub spent_amount_a: u128,
@@ -31,8 +33,10 @@ pub struct Swap {
 
 impl Swap {
     pub fn new(
-        order_a: LimitOrder,
-        order_b: LimitOrder,
+        // order_a: LimitOrder,
+        // order_b: LimitOrder,
+        order_a_id: u128,
+        order_b_id: u128,
         signatures_a: Vec<([u8; 32], [u8; 32])>,
         signatures_b: Vec<([u8; 32], [u8; 32])>,
         spent_amount_a: u128,
@@ -42,8 +46,8 @@ impl Swap {
     ) -> Swap {
         Swap {
             transaction_type: "swap".to_string(),
-            order_a,
-            order_b,
+            order_a_id,
+            order_b_id,
             signatures_a,
             signatures_b,
             spent_amount_a,
@@ -62,46 +66,50 @@ impl Swap {
         &self,
         batch_init_tree: &Tree,
         tree: &mut Tree,
-        partial_fill_tracker: &mut HashMap<u128, Note>,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+        partial_fill_tracker: &mut HashMap<u128, Note>,
+        orders_map: &mut HashMap<u128, LimitOrder>,
     ) {
-        self._consistency_checks();
+        let order_a: &LimitOrder = orders_map.get(&self.order_a_id).unwrap();
+        let order_b: &LimitOrder = orders_map.get(&self.order_b_id).unwrap();
 
-        self._range_checks();
+        self._consistency_checks(order_a, order_b);
 
-        let is_first_fill_a = self.order_a.amount_filled.get() == 0;
-        let is_first_fill_b = self.order_b.amount_filled.get() == 0;
+        self._range_checks(order_a, order_b);
+
+        let is_first_fill_a = order_a.amount_filled.get() == 0;
+        let is_first_fill_b = order_b.amount_filled.get() == 0;
 
         println!("{:?}", is_first_fill_a);
 
         // ? Check the sum of notes in matches refund and output amounts
         if is_first_fill_a {
             // ? if this is the first fill
-            self._check_note_sums(&self.order_a);
-            if self.order_a.notes_in[0].index != self.order_a.refund_note.index {
+            self._check_note_sums(&order_a);
+            if order_a.notes_in[0].index != order_a.refund_note.index {
                 panic!("refund note index is not the same as the first note index");
             }
         } else {
             // ? if order was partially filled befor
             self._check_prev_fill_consistencies(
                 partial_fill_tracker,
-                &self.order_a,
+                &order_a,
                 self.spent_amount_a,
             );
         }
 
         if is_first_fill_b {
             // ? if this is the first fill
-            self._check_note_sums(&self.order_b);
-            if self.order_b.notes_in[0].index != self.order_b.refund_note.index {
+            self._check_note_sums(&order_b);
+            if order_b.notes_in[0].index != order_b.refund_note.index {
                 panic!("refund note index is not the same as the first note index");
             }
         } else {
             // ? if order was partially filled befor
             self._check_prev_fill_consistencies(
                 partial_fill_tracker,
-                &self.order_b,
+                &order_b,
                 self.spent_amount_b,
             );
         }
@@ -109,8 +117,8 @@ impl Swap {
         // Todo: could also just be done the first fill
         // ? Verify that the order were signed correctly
 
-        self.order_a.verify_order_signatures(&self.signatures_a);
-        self.order_b.verify_order_signatures(&self.signatures_b);
+        order_a.verify_order_signatures(&self.signatures_a);
+        order_b.verify_order_signatures(&self.signatures_b);
 
         // ? Get indexes and create new swap notes
         let zero_idxs = tree.first_n_zero_idxs(4);
@@ -119,67 +127,70 @@ impl Swap {
         // Swap note a
         let swap_note_a_idx: u64;
         if is_first_fill_a {
-            if self.order_a.notes_in.len() > 1 {
-                swap_note_a_idx = self.order_a.notes_in[1].index.get().unwrap();
+            if order_a.notes_in.len() > 1 {
+                swap_note_a_idx = order_a.notes_in[1].index.get().unwrap();
             } else {
                 swap_note_a_idx = zero_idxs[0]
             }
         } else {
-            swap_note_a_idx = self.order_a.partial_refund_note_idx.get().unwrap();
+            swap_note_a_idx = order_a.partial_refund_note_idx.get().unwrap();
         };
 
         let swap_note_a = Note::new(
             Some(swap_note_a_idx),
-            self.order_a.dest_received_address.clone(),
-            self.order_a.token_received,
+            order_a.dest_received_address.clone(),
+            order_a.token_received,
             self.spent_amount_b - self.fee_taken_a,
-            self.order_a.blinding_seed.clone(),
+            order_a.blinding_seed.clone(),
         );
 
         // Swap note b
         let swap_note_b_idx: u64;
         if is_first_fill_b {
-            if self.order_b.notes_in.len() > 1 {
-                swap_note_b_idx = self.order_b.notes_in[1].index.get().unwrap();
+            if order_b.notes_in.len() > 1 {
+                swap_note_b_idx = order_b.notes_in[1].index.get().unwrap();
             } else {
                 swap_note_b_idx = zero_idxs[1]
             }
         } else {
-            swap_note_b_idx = self.order_b.partial_refund_note_idx.get().unwrap();
+            swap_note_b_idx = order_b.partial_refund_note_idx.get().unwrap();
         };
 
         let swap_note_b = Note::new(
             Some(swap_note_b_idx),
-            self.order_b.dest_received_address.clone(),
-            self.order_b.token_received,
+            order_b.dest_received_address.clone(),
+            order_b.token_received,
             self.spent_amount_a - self.fee_taken_b,
-            self.order_b.blinding_seed.clone(),
+            order_b.blinding_seed.clone(),
         );
 
         // ? Update previous and new partial fills ==========================
         // Order a
-        let prev_amount_filled_a = self.order_a.amount_filled.get();
-        self.order_a
+        let prev_amount_filled_a = order_a.amount_filled.get();
+        order_a
             .amount_filled
             .set(prev_amount_filled_a + self.spent_amount_b);
 
-        println!("{:?}", self.order_a.amount_filled.get());
+        println!("{:?}", order_a.amount_filled.get());
 
         let prev_partial_fill_refund_note_a: Option<Note> =
-            partial_fill_tracker.remove(&self.order_a.order_id);
+            partial_fill_tracker.remove(&order_a.order_id);
         let new_partial_refund_note_a: Option<Note>;
-        if prev_amount_filled_a + self.spent_amount_b < self.order_a.amount_received {
+
+        let is_partially_filled_a =
+            prev_amount_filled_a + self.spent_amount_b < order_a.amount_received;
+        if is_partially_filled_a {
             //? Order A was partially filled, we must refund the rest
 
-            let partial_refund_idx: u64 = if self.order_a.notes_in.len() > 2 && is_first_fill_a {
-                self.order_a.notes_in[2].index.get().unwrap()
+            let partial_refund_idx: u64 = if order_a.notes_in.len() > 2 && is_first_fill_a {
+                order_a.notes_in[2].index.get().unwrap()
             } else {
                 zero_idxs[2]
             };
 
             new_partial_refund_note_a = self.refund_partial_fill(
                 partial_fill_tracker,
-                &self.order_a,
+                &order_a,
                 is_first_fill_a,
                 self.spent_amount_a,
                 partial_refund_idx,
@@ -189,26 +200,29 @@ impl Swap {
         }
 
         // Order b
-        let prev_amount_filled_b = self.order_b.amount_filled.get();
-        self.order_b
+        let prev_amount_filled_b = order_b.amount_filled.get();
+        order_b
             .amount_filled
             .set(prev_amount_filled_b + self.spent_amount_a);
 
         let prev_partial_fill_refund_note_b: Option<Note> =
-            partial_fill_tracker.remove(&self.order_b.order_id);
+            partial_fill_tracker.remove(&order_b.order_id);
         let new_partial_refund_note_b: Option<Note>;
-        if prev_amount_filled_b + self.spent_amount_a < self.order_b.amount_received {
+
+        let is_partially_filled_b =
+            prev_amount_filled_b + self.spent_amount_a < order_b.amount_received;
+        if is_partially_filled_b {
             //? Order A was partially filled, we must refund the rest
 
-            let partial_refund_idx: u64 = if self.order_b.notes_in.len() > 2 && is_first_fill_b {
-                self.order_b.notes_in[2].index.get().unwrap()
+            let partial_refund_idx: u64 = if order_b.notes_in.len() > 2 && is_first_fill_b {
+                order_b.notes_in[2].index.get().unwrap()
             } else {
                 zero_idxs[3]
             };
 
             new_partial_refund_note_b = self.refund_partial_fill(
                 partial_fill_tracker,
-                &self.order_b,
+                &order_b,
                 is_first_fill_b,
                 self.spent_amount_b,
                 partial_refund_idx,
@@ -226,16 +240,12 @@ impl Swap {
                 tree,
                 preimage,
                 updated_note_hashes,
-                &self.order_a.notes_in,
-                &self.order_a.refund_note,
+                &order_a.notes_in,
+                &order_a.refund_note,
                 &swap_note_a,
                 new_partial_refund_note_a,
             )
         } else {
-            println!("{:?}", &prev_partial_fill_refund_note_a);
-            println!("{:?}", swap_note_a);
-            println!("{:?}", new_partial_refund_note_a);
-
             self.update_state_after_swap_later_fills(
                 batch_init_tree,
                 tree,
@@ -254,8 +264,8 @@ impl Swap {
                 tree,
                 preimage,
                 updated_note_hashes,
-                &self.order_b.notes_in,
-                &self.order_b.refund_note,
+                &order_b.notes_in,
+                &order_b.refund_note,
                 &swap_note_b,
                 new_partial_refund_note_b,
             )
@@ -269,6 +279,13 @@ impl Swap {
                 &swap_note_b,
                 new_partial_refund_note_b,
             );
+        }
+
+        if !is_partially_filled_a {
+            orders_map.remove(&self.order_a_id);
+        }
+        if !is_partially_filled_b {
+            orders_map.remove(&self.order_b_id);
         }
 
         // return {
@@ -529,47 +546,44 @@ impl Swap {
         }
     }
 
-    fn _consistency_checks(&self) {
+    fn _consistency_checks(&self, order_a: &LimitOrder, order_b: &LimitOrder) {
         // ? Check that the tokens swapped match
-        if self.order_a.token_spent != self.order_b.token_received
-            || self.order_a.token_received != self.order_b.token_spent
+        if order_a.token_spent != order_b.token_received
+            || order_a.token_received != order_b.token_spent
         {
             panic!("Tokens swapped do not match");
         }
 
         // ? Check that the amounts swapped dont exceed the order amounts
-        if self.order_a.amount_spent < self.spent_amount_a
-            || self.order_b.amount_spent < self.spent_amount_b
+        if order_a.amount_spent < self.spent_amount_a || order_b.amount_spent < self.spent_amount_b
         {
             panic!("Amounts swapped exceed order amounts");
         }
 
         // ? Check that the fees taken dont exceed the order fees
-        if self.fee_taken_a * self.order_a.amount_received
-            > self.order_a.fee_limit * self.spent_amount_b
-            || self.fee_taken_b * self.order_b.amount_received
-                > self.order_b.fee_limit * self.spent_amount_a
+        if self.fee_taken_a * order_a.amount_received > order_a.fee_limit * self.spent_amount_b
+            || self.fee_taken_b * order_b.amount_received > order_b.fee_limit * self.spent_amount_a
         {
             panic!("Fees taken exceed order fees");
         }
 
         // ? Verify consistency of amounts swaped
-        if self.spent_amount_a * self.order_a.amount_received
-            > self.spent_amount_b * self.order_a.amount_spent
-            || self.spent_amount_b * self.order_b.amount_received
-                > self.spent_amount_a * self.order_b.amount_spent
+        if self.spent_amount_a * order_a.amount_received
+            > self.spent_amount_b * order_a.amount_spent
+            || self.spent_amount_b * order_b.amount_received
+                > self.spent_amount_a * order_b.amount_spent
         {
             panic!("Amount swapped ratios are inconsistent");
         }
     }
 
-    fn _range_checks(&self) {
+    fn _range_checks(&self, order_a: &LimitOrder, order_b: &LimitOrder) {
         if self.spent_amount_a > MAX_AMOUNT
             || self.spent_amount_b > MAX_AMOUNT
-            || self.order_a.order_id > MAX_ORDER_ID
-            || self.order_b.order_id > MAX_ORDER_ID
-            || self.order_a.expiration_timestamp > MAX_EXPIRATION_TIMESTAMP
-            || self.order_b.expiration_timestamp > MAX_EXPIRATION_TIMESTAMP
+            || order_a.order_id > MAX_ORDER_ID
+            || order_b.order_id > MAX_ORDER_ID
+            || order_a.expiration_timestamp > MAX_EXPIRATION_TIMESTAMP
+            || order_b.expiration_timestamp > MAX_EXPIRATION_TIMESTAMP
         {
             panic!("Range checks failed");
         }
@@ -588,13 +602,15 @@ impl Transaction for Swap {
         partial_fill_tracker: &mut HashMap<u128, Note>,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+        orders_map: &mut HashMap<u128, LimitOrder>,
     ) {
         self.execute_swap(
             batch_init_tree,
             tree,
-            partial_fill_tracker,
             preimage,
             updated_note_hashes,
-        )
+            partial_fill_tracker,
+            orders_map,
+        );
     }
 }

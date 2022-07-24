@@ -15,6 +15,9 @@ pub fn main() {
 
     let (
         init_leaves,
+        order_a,
+        order_b,
+        order_c,
         swap1,
         swap2,
         deposit1,
@@ -29,11 +32,16 @@ pub fn main() {
 
     let mut batch = TransactionBatch::new(batch_init_tree);
 
+    batch.add_new_order(order_a);
+    batch.add_new_order(order_b);
+    batch.add_new_order(order_c);
+
     let start = std::time::Instant::now();
 
     batch.execute_transaction(swap1);
-
     batch.execute_transaction(swap2);
+    // println!("{:#?}", batch.current_state_tree.leaf_nodes);
+    // println!("{:#?}", batch.current_state_tree.get_leaf_by_index(3));
     batch.execute_transaction(withdrawal1);
     batch.execute_transaction(deposit1);
     batch.execute_transaction(withdrawal2);

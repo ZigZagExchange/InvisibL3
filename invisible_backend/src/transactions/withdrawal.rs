@@ -12,6 +12,7 @@ use num_traits::FromPrimitive;
 //
 use crate::notes::Note;
 
+use super::limit_order::LimitOrder;
 use super::swap::Transaction;
 //
 
@@ -84,7 +85,12 @@ impl Withdrawal {
     ) {
         self.get_init_state_preimage_proofs(batch_init_tree, preimage);
 
+        // println!("{:#?}", tree.leaf_nodes);
         let refund_idx = self.refund_note.index.get().unwrap();
+        if tree.get_leaf_by_index(refund_idx) != self.notes_in[0].hash {
+            panic!("note spent does not exist in the state");
+        }
+
         let (proof, proof_pos) = tree.get_proof(refund_idx);
         tree.update_node(&self.refund_note.hash, refund_idx, &proof);
         updated_note_hashes.insert(
@@ -92,7 +98,7 @@ impl Withdrawal {
             (self.refund_note.hash.clone(), proof, proof_pos),
         );
 
-        for note in self.notes_in.iter() {
+        for note in self.notes_in.iter().skip(1) {
             let idx = note.index.get().unwrap_or(0);
 
             // ?assert notes exist in the tree
@@ -175,6 +181,7 @@ impl Transaction for Withdrawal {
         partial_fill_tracker: &mut HashMap<u128, Note>,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+        orders_map: &mut HashMap<u128, LimitOrder>,
     ) {
         self.execute_withdrawal(batch_init_tree, tree, preimage, updated_note_hashes)
     }

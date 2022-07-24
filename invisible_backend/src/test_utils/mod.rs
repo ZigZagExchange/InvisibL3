@@ -69,7 +69,7 @@ pub fn read_batch_json_inputs() -> (
     );
 }
 
-fn serialize_swap(swap_json: &Json, order_a: LimitOrder, order_b: LimitOrder) -> Swap {
+fn serialize_swap(swap_json: &Json, order_a_id: u128, order_b_id: u128) -> Swap {
     // let order_a: LimitOrder = serialize_order(&swap_json["orderA"]);
     // let order_b: LimitOrder = serialize_order(&swap_json["orderB"]);
 
@@ -92,8 +92,8 @@ fn serialize_swap(swap_json: &Json, order_a: LimitOrder, order_b: LimitOrder) ->
     let fee_taken_b = u128::from_str(swap_json["fee_takenB"].as_string().unwrap()).unwrap();
 
     Swap::new(
-        order_a,
-        order_b,
+        order_a_id,
+        order_b_id,
         signatures_a,
         signatures_b,
         spent_amount_a,

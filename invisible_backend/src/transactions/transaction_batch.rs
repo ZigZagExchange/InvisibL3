@@ -2,6 +2,7 @@ use num_bigint::BigUint;
 use num_traits::FromPrimitive;
 use std::collections::HashMap;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use crate::pedersen::{pedersen, pedersen_on_vec};
 use crate::starkware_crypto as starknet;
@@ -12,6 +13,7 @@ use crate::users::biguint_to_32vec;
 use crate::notes::Note;
 
 use super::deposit::Deposit;
+use super::limit_order::LimitOrder;
 
 pub trait Transaction {
     fn transaction_type(&self) -> &str;
@@ -23,6 +25,7 @@ pub trait Transaction {
         partial_fill_tracker: &mut HashMap<u128, Note>,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+        orders_map: &mut HashMap<u128, LimitOrder>,
     );
 }
 
@@ -32,6 +35,7 @@ pub struct TransactionBatch {
     pub partial_fill_tracker: HashMap<u128, Note>,
     pub preimage: HashMap<BigUint, [BigUint; 2]>,
     pub updated_note_hashes: HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+    pub orders_map: HashMap<u128, LimitOrder>,
 }
 
 impl TransactionBatch {
@@ -41,6 +45,7 @@ impl TransactionBatch {
         let partial_fill_tracker: HashMap<u128, Note> = HashMap::new();
         let preimage: HashMap<BigUint, [BigUint; 2]> = HashMap::new();
         let updated_note_hashes: HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)> = HashMap::new();
+        let orders_map: HashMap<u128, LimitOrder> = HashMap::new();
 
         return TransactionBatch {
             batch_init_tree,
@@ -48,6 +53,7 @@ impl TransactionBatch {
             partial_fill_tracker,
             preimage,
             updated_note_hashes,
+            orders_map,
         };
     }
 
@@ -60,6 +66,7 @@ impl TransactionBatch {
             &mut self.partial_fill_tracker,
             &mut self.preimage,
             &mut self.updated_note_hashes,
+            &mut self.orders_map,
         );
 
         match transaction.transaction_type() {
@@ -88,5 +95,12 @@ impl TransactionBatch {
                 self.preimage.insert(key, value);
             }
         }
+    }
+
+    pub fn add_new_order(&mut self, order: LimitOrder) {
+        if self.orders_map.contains_key(&order.order_id) {
+            return ();
+        }
+        self.orders_map.insert(order.order_id, order);
     }
 }

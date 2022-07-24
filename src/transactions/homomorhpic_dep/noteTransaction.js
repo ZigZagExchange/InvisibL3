@@ -10,7 +10,7 @@ const {
   split,
   splitUint256,
   trimHash,
-} = require("../notes/Notes.js");
+} = require("../../notes/Notes.js");
 const {
   getKeyPair,
   getStarkKey,
