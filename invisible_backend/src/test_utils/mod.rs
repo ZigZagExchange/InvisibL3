@@ -1,39 +1,32 @@
+use std::cell::Cell;
 use std::{fs, str::FromStr};
 
 use num_bigint::BigUint;
 use rustc_serialize::json::Json;
-use serde::{Deserialize, Serialize};
 
 use crate::notes::Note;
+use crate::transactions::deposit::{self, Deposit};
 use crate::transactions::limit_order::LimitOrder;
 use crate::transactions::swap::{self, Swap};
+use crate::transactions::withdrawal::{self, Withdrawal};
 use crate::users::biguint_to_32vec;
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Point {
-    x: i32,
-    y: i32,
-}
-
-pub fn test_serde() {
-    let point = Point { x: 1, y: 2 };
-
-    // Convert the Point to a JSON string.
-    let serialized = serde_json::to_string(&point).unwrap();
-
-    // Prints serialized = {"x":1,"y":2}
-    println!("serialized = {}", serialized);
-
-    // Convert the JSON string back to a Point.
-    let deserialized: Point = serde_json::from_str(&serialized).unwrap();
-
-    // Prints deserialized = Point { x: 1, y: 2 }
-    println!("deserialized = {:?}", deserialized);
-}
 
 // pub fn
 
-pub fn read_batch_json_inputs() -> (Vec<BigUint>, Swap, Swap) {
+pub fn read_batch_json_inputs() -> (
+    Vec<BigUint>,
+    LimitOrder,
+    LimitOrder,
+    LimitOrder,
+    Swap,
+    Swap,
+    Deposit,
+    Deposit,
+    Deposit,
+    Withdrawal,
+    Withdrawal,
+    Withdrawal,
+) {
     let data = fs::read_to_string("rust_input.json").expect("Unable to read file");
 
     let json = Json::from_str(&data).unwrap();
@@ -45,15 +38,40 @@ pub fn read_batch_json_inputs() -> (Vec<BigUint>, Swap, Swap) {
         .map(|x| BigUint::from_str(x.as_string().unwrap()).unwrap())
         .collect();
 
-    let swap1: Swap = serialize_swap(&json["swaps"][0]);
-    let swap2: Swap = serialize_swap(&json["swaps"][1]);
+    let order_a: LimitOrder = serialize_order(&json["swaps"][0]["orderA"]);
+    let order_b: LimitOrder = serialize_order(&json["swaps"][0]["orderB"]);
+    let order_c: LimitOrder = serialize_order(&json["swaps"][1]["orderB"]);
 
-    return (init_leaves, swap1, swap2);
+    let swap1: Swap = serialize_swap(&json["swaps"][0], order_a.order_id, order_b.order_id);
+    let swap2: Swap = serialize_swap(&json["swaps"][1], order_a.order_id, order_c.order_id);
+
+    let deposit1: Deposit = serialize_deposit(&json["deposits"][0]);
+    let deposit2: Deposit = serialize_deposit(&json["deposits"][1]);
+    let deposit3: Deposit = serialize_deposit(&json["deposits"][2]);
+
+    let withdrawal1: Withdrawal = serialize_withdrawal(&json["withdrawals"][0]);
+    let withdrawal2: Withdrawal = serialize_withdrawal(&json["withdrawals"][1]);
+    let withdrawal3: Withdrawal = serialize_withdrawal(&json["withdrawals"][2]);
+
+    return (
+        init_leaves,
+        order_a,
+        order_b,
+        order_c,
+        swap1,
+        swap2,
+        deposit1,
+        deposit2,
+        deposit3,
+        withdrawal1,
+        withdrawal2,
+        withdrawal3,
+    );
 }
 
-fn serialize_swap(swap_json: &Json) -> Swap {
-    let order_a: LimitOrder = serialize_order(&swap_json["orderA"]);
-    let order_b: LimitOrder = serialize_order(&swap_json["orderB"]);
+fn serialize_swap(swap_json: &Json, order_a: LimitOrder, order_b: LimitOrder) -> Swap {
+    // let order_a: LimitOrder = serialize_order(&swap_json["orderA"]);
+    // let order_b: LimitOrder = serialize_order(&swap_json["orderB"]);
 
     let signatures_a = swap_json["orderA"]["signatures"]
         .as_array()
@@ -82,6 +100,86 @@ fn serialize_swap(swap_json: &Json) -> Swap {
         spent_amount_b,
         fee_taken_a,
         fee_taken_b,
+    )
+}
+
+fn serialize_deposit(deposit_json: &Json) -> Deposit {
+    let notes: Vec<Note> = deposit_json["notes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| serialize_note(x))
+        .collect();
+
+    let signature = serialize_signature(&deposit_json["signature"]);
+
+    return Deposit::new(
+        u128::from_str(
+            deposit_json["on_chain_deposit_info"]["deposit_id"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        deposit_json["on_chain_deposit_info"]["token"]
+            .as_u64()
+            .unwrap(),
+        u128::from_str(
+            deposit_json["on_chain_deposit_info"]["amount"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        BigUint::from_str(
+            deposit_json["on_chain_deposit_info"]["stark_key"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        notes,
+        signature,
+    );
+}
+
+fn serialize_withdrawal(withdraw_json: &Json) -> Withdrawal {
+    let notes_in: Vec<Note> = withdraw_json["notesIn"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| serialize_note(x))
+        .collect();
+
+    let signatures = withdraw_json["signatures"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| serialize_signature(x))
+        .collect();
+
+    Withdrawal::new(
+        u128::from_str(
+            withdraw_json["on_chain_withdraw_info"]["withdraw_id"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        withdraw_json["on_chain_withdraw_info"]["token"]
+            .as_u64()
+            .unwrap(),
+        u128::from_str(
+            withdraw_json["on_chain_withdraw_info"]["amount"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        BigUint::from_str(
+            withdraw_json["on_chain_withdraw_info"]["stark_key"]
+                .as_string()
+                .unwrap(),
+        )
+        .unwrap(),
+        notes_in,
+        serialize_note(&withdraw_json["refund_note"]),
+        signatures,
     )
 }
 
@@ -118,8 +216,9 @@ fn serialize_order(json: &Json) -> LimitOrder {
 
 fn serialize_note(json: &Json) -> Note {
     // println!("{}",);
+
     Note::new(
-        json["index"].as_u64().unwrap(),
+        Some(json["index"].as_u64().unwrap()),
         BigUint::from_str(json["address_pk"].as_string().unwrap()).unwrap(),
         json["token"].as_u64().unwrap(),
         u128::from_str(json["amount"].as_string().unwrap()).unwrap(),

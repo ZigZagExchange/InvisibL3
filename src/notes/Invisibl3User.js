@@ -120,7 +120,7 @@ module.exports = class User {
 
     let signatures = order.sign_order(signingKeys);
 
-    return { order, signatures };
+    return order;
   }
 
   makeWithdrawalOrder(withdrawAmount, withdrawToken, withdrawStarkKey) {
@@ -160,9 +160,9 @@ module.exports = class User {
     }
 
     let withdrawId = notesIn.reduce((acc, note) => {
-      return acc + note.index;
-    }, 0);
-    withdrawId = pedersen([withdrawId, 0]);
+      return acc + note.amount / 10n;
+    }, 0n);
+    // withdrawId = pedersen([withdrawId, 0]);  // todo
 
     const withdrawal = new InvisibleWithdrawal(
       withdrawId,
@@ -179,7 +179,7 @@ module.exports = class User {
   }
 
   makeDepositOrder(depositId, depositAmount, depositToken, depositStarkKey) {
-    let depositAmounts = this._getRandomAmounts(depositAmount);
+    let depositAmounts = this._getRandomAmounts(depositAmount, 3);
     // todo: generate below values by some formula (add kos to this.address2ko)
     let kos = [152787124n, 812341234n, 27347238483n];
     let addresses = kos.map((ko) => getKeyPair(ko).getPublic());

@@ -19,8 +19,8 @@ const MAX_EXPIRATION_TIMESTAMP: u32 = 2_u32.pow(31);
 
 pub struct Swap {
     pub transaction_type: String,
-    pub order_a: LimitOrder,
-    pub order_b: LimitOrder,
+    // pub order_a: LimitOrder,
+    // pub order_b: LimitOrder,
     pub signatures_a: Vec<([u8; 32], [u8; 32])>,
     pub signatures_b: Vec<([u8; 32], [u8; 32])>,
     pub spent_amount_a: u128,
@@ -30,7 +30,7 @@ pub struct Swap {
 }
 
 impl Swap {
-    pub fn new<'a>(
+    pub fn new(
         order_a: LimitOrder,
         order_b: LimitOrder,
         signatures_a: Vec<([u8; 32], [u8; 32])>,
@@ -72,6 +72,8 @@ impl Swap {
 
         let is_first_fill_a = self.order_a.amount_filled.get() == 0;
         let is_first_fill_b = self.order_b.amount_filled.get() == 0;
+
+        println!("{:?}", is_first_fill_a);
 
         // ? Check the sum of notes in matches refund and output amounts
         if is_first_fill_a {
@@ -118,7 +120,7 @@ impl Swap {
         let swap_note_a_idx: u64;
         if is_first_fill_a {
             if self.order_a.notes_in.len() > 1 {
-                swap_note_a_idx = self.order_a.notes_in[1].index
+                swap_note_a_idx = self.order_a.notes_in[1].index.get().unwrap();
             } else {
                 swap_note_a_idx = zero_idxs[0]
             }
@@ -127,7 +129,7 @@ impl Swap {
         };
 
         let swap_note_a = Note::new(
-            swap_note_a_idx,
+            Some(swap_note_a_idx),
             self.order_a.dest_received_address.clone(),
             self.order_a.token_received,
             self.spent_amount_b - self.fee_taken_a,
@@ -138,7 +140,7 @@ impl Swap {
         let swap_note_b_idx: u64;
         if is_first_fill_b {
             if self.order_b.notes_in.len() > 1 {
-                swap_note_b_idx = self.order_b.notes_in[1].index
+                swap_note_b_idx = self.order_b.notes_in[1].index.get().unwrap();
             } else {
                 swap_note_b_idx = zero_idxs[1]
             }
@@ -147,7 +149,7 @@ impl Swap {
         };
 
         let swap_note_b = Note::new(
-            swap_note_b_idx,
+            Some(swap_note_b_idx),
             self.order_b.dest_received_address.clone(),
             self.order_b.token_received,
             self.spent_amount_a - self.fee_taken_b,
@@ -161,14 +163,16 @@ impl Swap {
             .amount_filled
             .set(prev_amount_filled_a + self.spent_amount_b);
 
+        println!("{:?}", self.order_a.amount_filled.get());
+
         let prev_partial_fill_refund_note_a: Option<Note> =
             partial_fill_tracker.remove(&self.order_a.order_id);
         let new_partial_refund_note_a: Option<Note>;
         if prev_amount_filled_a + self.spent_amount_b < self.order_a.amount_received {
             //? Order A was partially filled, we must refund the rest
 
-            let partial_refund_idx = if self.order_a.notes_in.len() > 2 && is_first_fill_a {
-                self.order_a.notes_in[2].index
+            let partial_refund_idx: u64 = if self.order_a.notes_in.len() > 2 && is_first_fill_a {
+                self.order_a.notes_in[2].index.get().unwrap()
             } else {
                 zero_idxs[2]
             };
@@ -196,8 +200,8 @@ impl Swap {
         if prev_amount_filled_b + self.spent_amount_a < self.order_b.amount_received {
             //? Order A was partially filled, we must refund the rest
 
-            let partial_refund_idx = if self.order_b.notes_in.len() > 2 && is_first_fill_b {
-                self.order_b.notes_in[2].index
+            let partial_refund_idx: u64 = if self.order_b.notes_in.len() > 2 && is_first_fill_b {
+                self.order_b.notes_in[2].index.get().unwrap()
             } else {
                 zero_idxs[3]
             };
@@ -228,6 +232,10 @@ impl Swap {
                 new_partial_refund_note_a,
             )
         } else {
+            println!("{:?}", &prev_partial_fill_refund_note_a);
+            println!("{:?}", swap_note_a);
+            println!("{:?}", new_partial_refund_note_a);
+
             self.update_state_after_swap_later_fills(
                 batch_init_tree,
                 tree,
@@ -289,53 +297,56 @@ impl Swap {
             batch_init_tree,
             preimage,
             notes_in,
-            swap_note.index,
+            swap_note.index.get().unwrap(),
             partial_fill_refund_note.as_ref(),
         );
 
         // ? assert notes exist in the tree
         for note in notes_in.iter() {
-            if batch_init_tree.get_leaf_by_index(note.index) != note.hash {
+            if batch_init_tree.get_leaf_by_index(note.index.get().unwrap()) != note.hash {
                 panic!("note spent for swap does not exist in the state")
             }
         }
 
         // ? Update the state tree
-        let (first_proof, first_proof_pos) = tree.get_proof(refund_note.index);
-        tree.update_node(&refund_note.hash, refund_note.index, &first_proof);
+        let refund_idx = refund_note.index.get().unwrap();
+        let (first_proof, first_proof_pos) = tree.get_proof(refund_idx);
+        tree.update_node(&refund_note.hash, refund_idx, &first_proof);
         updated_note_hashes.insert(
-            refund_note.index,
+            refund_idx,
             (refund_note.hash.clone(), first_proof, first_proof_pos),
         );
 
-        let (second_proof, second_proof_pos) = tree.get_proof(swap_note.index);
-        tree.update_node(&swap_note.hash, swap_note.index, &second_proof);
+        let swap_idx = swap_note.index.get().unwrap();
+        let (second_proof, second_proof_pos) = tree.get_proof(swap_idx);
+        tree.update_node(&swap_note.hash, swap_idx, &second_proof);
         updated_note_hashes.insert(
-            refund_note.index,
+            swap_idx,
             (swap_note.hash.clone(), second_proof, second_proof_pos),
         );
 
         if partial_fill_refund_note.is_some() {
+            //
             let note = partial_fill_refund_note.unwrap();
-            let (proof, proof_pos) = tree.get_proof(note.index);
-            tree.update_node(&note.hash, note.index, &proof);
-            updated_note_hashes.insert(note.index, (note.hash.clone(), proof, proof_pos));
+            let idx: u64 = note.index.get().unwrap();
+            let (proof, proof_pos) = tree.get_proof(idx);
+            tree.update_node(&note.hash, idx, &proof);
+            updated_note_hashes.insert(idx, (note.hash.clone(), proof, proof_pos));
+            //
         } else if notes_in.len() > 2 {
-            let (proof, proof_pos) = tree.get_proof(notes_in[2].index);
-            tree.update_node(&BigUint::from_i8(0).unwrap(), notes_in[2].index, &proof);
-            updated_note_hashes.insert(
-                notes_in[2].index,
-                (BigUint::from_i8(0).unwrap(), proof, proof_pos),
-            );
+            //
+            let idx = notes_in[2].index.get().unwrap();
+            let (proof, proof_pos) = tree.get_proof(idx);
+            tree.update_node(&BigUint::from_i8(0).unwrap(), idx, &proof);
+            updated_note_hashes.insert(idx, (BigUint::from_i8(0).unwrap(), proof, proof_pos));
+            //
         }
 
         for i in 3..notes_in.len() {
-            let (proof, proof_pos) = tree.get_proof(notes_in[i].index);
-            tree.update_node(&BigUint::from_i8(0).unwrap(), notes_in[i].index, &proof);
-            updated_note_hashes.insert(
-                notes_in[i].index,
-                (BigUint::from_i8(0).unwrap(), proof, proof_pos),
-            );
+            let idx = notes_in[i].index.get().unwrap();
+            let (proof, proof_pos) = tree.get_proof(idx);
+            tree.update_node(&BigUint::from_i8(0).unwrap(), idx, &proof);
+            updated_note_hashes.insert(idx, (BigUint::from_i8(0).unwrap(), proof, proof_pos));
         }
 
         //
@@ -350,23 +361,25 @@ impl Swap {
         partial_fill_refund_note: Option<&Note>,
     ) {
         for i in 0..notes_in.len() {
-            let (proof, proof_pos) = batch_init_tree.get_proof(notes_in[i].index);
+            //
+            let (proof, proof_pos) = batch_init_tree.get_proof(notes_in[i].index.get().unwrap());
             let mut multiproof =
                 batch_init_tree.get_multi_update_proof(&notes_in[i].hash, &proof, &proof_pos);
-            for (key, value) in multiproof.drain().take(1) {
+            for (key, value) in multiproof.drain() {
                 preimage.insert(key, value);
             }
+            //
         }
 
         if notes_in.len() < 3 && partial_fill_refund_note.is_some() {
             let note = partial_fill_refund_note.as_ref().unwrap();
-            let (proof, proof_pos) = batch_init_tree.get_proof(note.index);
+            let (proof, proof_pos) = batch_init_tree.get_proof(note.index.get().unwrap());
             let mut multiproof = batch_init_tree.get_multi_update_proof(
                 &BigUint::from_i8(0).unwrap(),
                 &proof,
                 &proof_pos,
             );
-            for (key, value) in multiproof.drain().take(1) {
+            for (key, value) in multiproof.drain() {
                 preimage.insert(key, value);
             }
         }
@@ -377,7 +390,7 @@ impl Swap {
                 &proof,
                 &proof_pos,
             );
-            for (key, value) in multiproof.drain().take(1) {
+            for (key, value) in multiproof.drain() {
                 preimage.insert(key, value);
             }
         }
@@ -404,25 +417,27 @@ impl Swap {
         }
 
         // ? assert note exist in the tree
-        if tree.get_leaf_by_index(prev_partial_fill_refund_note.index)
+        if tree.get_leaf_by_index(prev_partial_fill_refund_note.index.get().unwrap())
             != prev_partial_fill_refund_note.hash
         {
             panic!("prev partial refund note used in swap does not exist in the state");
         }
 
         // ? Update the state tree
-        let (first_proof, first_proof_pos) = tree.get_proof(swap_note.index);
-        tree.update_node(&swap_note.hash, swap_note.index, &first_proof);
+        let swap_idx = swap_note.index.get().unwrap();
+        let (first_proof, first_proof_pos) = tree.get_proof(swap_idx);
+        tree.update_node(&swap_note.hash, swap_idx, &first_proof);
         updated_note_hashes.insert(
-            swap_note.index,
+            swap_idx,
             (swap_note.hash.clone(), first_proof, first_proof_pos),
         );
 
         if new_partial_fill_refund_note.is_some() {
             let pfr_note: &Note = new_partial_fill_refund_note.as_ref().unwrap();
-            let (proof, proof_pos) = tree.get_proof(pfr_note.index);
-            tree.update_node(&pfr_note.hash, pfr_note.index, &proof);
-            updated_note_hashes.insert(pfr_note.index, (pfr_note.hash.clone(), proof, proof_pos));
+            let pfr_idx = pfr_note.index.get().unwrap();
+            let (proof, proof_pos) = tree.get_proof(pfr_idx);
+            tree.update_node(&pfr_note.hash, pfr_idx, &proof);
+            updated_note_hashes.insert(pfr_idx, (pfr_note.hash.clone(), proof, proof_pos));
         }
 
         //
@@ -436,13 +451,14 @@ impl Swap {
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
         partial_fill_refund_note: &Note,
     ) {
-        let (proof, proof_pos) = batch_init_tree.get_proof(partial_fill_refund_note.index);
+        let (proof, proof_pos) =
+            batch_init_tree.get_proof(partial_fill_refund_note.index.get().unwrap());
         let mut multiproof = batch_init_tree.get_multi_update_proof(
             &BigUint::from_i8(0).unwrap(),
             &proof,
             &proof_pos,
         );
-        for (key, value) in multiproof.drain().take(1) {
+        for (key, value) in multiproof.drain() {
             preimage.insert(key, value);
         }
     }
@@ -467,7 +483,7 @@ impl Swap {
         };
 
         let new_partial_refund_note: Note = Note::new(
-            idx,
+            Some(idx),
             order.dest_spent_address.clone(),
             order.token_spent,
             new_partial_refund_amount,
@@ -562,7 +578,7 @@ impl Swap {
 
 impl Transaction for Swap {
     fn transaction_type(&self) -> &str {
-        return "swap";
+        return self.transaction_type.as_str();
     }
 
     fn execute_transaction(

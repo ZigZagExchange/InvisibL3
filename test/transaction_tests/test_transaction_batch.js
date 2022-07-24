@@ -62,7 +62,7 @@ async function test_tx_batch() {
   let dest_received_address_A = ec.g.mul(1872461289123n);
   let blinding_seed_A = 89122142144n;
 
-  const orderARes = userA.makeLimitOrder(
+  const order_A = userA.makeLimitOrder(
     nonce_A,
     expiration_timestamp_A,
     token_spent_A,
@@ -74,9 +74,6 @@ async function test_tx_batch() {
     dest_received_address_A,
     blinding_seed_A
   );
-
-  let order_A = orderARes.order;
-  let signatures_A = orderARes.signatures;
 
   // =====================================================
   // * ORDER B
@@ -92,7 +89,7 @@ async function test_tx_batch() {
   let dest_received_address_B = ec.g.mul(138964184218n);
   let blinding_seed_B = 238956583749235n;
 
-  const orderBRes = userB.makeLimitOrder(
+  const order_B = userB.makeLimitOrder(
     nonce_B,
     expiration_timestamp_B,
     token_spent_B,
@@ -104,9 +101,6 @@ async function test_tx_batch() {
     dest_received_address_B,
     blinding_seed_B
   );
-
-  let order_B = orderBRes.order;
-  let signatures_B = orderBRes.signatures;
 
   // =====================================================
   // * ORDER C
@@ -122,7 +116,7 @@ async function test_tx_batch() {
   let dest_received_address_C = ec.g.mul(452739126384n);
   let blinding_seed_C = 3891461497291094n;
 
-  const orderCRes = userC.makeLimitOrder(
+  const order_C = userC.makeLimitOrder(
     nonce_C,
     expiration_timestamp_C,
     token_spent_C,
@@ -134,9 +128,6 @@ async function test_tx_batch() {
     dest_received_address_C,
     blinding_seed_C
   );
-
-  let order_C = orderCRes.order;
-  let signatures_C = orderCRes.signatures;
 
   // =====================================================
   //* SWAP AB ------------------
@@ -210,7 +201,7 @@ async function test_tx_batch() {
   // =====================================================
   // * DEPOSIT A ------------------
 
-  let depositIdA = 12654n;
+  let depositIdA = 126712n;
   let amountDepositedA = 100_000n;
   let tokenDepositedA = 0;
   let starkKeyA = null;
@@ -224,8 +215,8 @@ async function test_tx_batch() {
 
   // * DEPOSIT B ------------------
 
-  let depositIdB = 12654n;
-  let amountDepositedB = 120_000n;
+  let depositIdB = 5632836n;
+  let amountDepositedB = 90_000n;
   let tokenDepositedB = 1;
   let starkKeyB = null;
 
@@ -238,7 +229,7 @@ async function test_tx_batch() {
 
   // * DEPOSIT C ------------------
 
-  let depositIdC = 12654n;
+  let depositIdC = 715346192n;
   let amountDepositedC = 120_000n;
   let tokenDepositedC = 1;
   let starkKeyC_ = null;
@@ -256,18 +247,28 @@ async function test_tx_batch() {
   const transactionBatch = new TransactionBatch(batchInitTree);
 
   jsonArgumentInput["swaps"] = [swapAB.toInputObject(), swapAC.toInputObject()];
-  jsonArgumentInput["signatures"] = [signatures_A, signatures_B, signatures_C];
+  jsonArgumentInput["deposits"] = [
+    deposit_A.toInputObject(),
+    deposit_B.toInputObject(),
+    deposit_C.toInputObject(),
+  ];
+  jsonArgumentInput["withdrawals"] = [
+    withdrawalA.toInputObject(),
+    withdrawalB.toInputObject(),
+    withdrawalC.toInputObject(),
+  ];
 
   console.time("executeTransactionBatch");
+
   transactionBatch.executeTransaction(swapAB);
   transactionBatch.executeTransaction(swapAC);
-  // transactionBatch.executeTransaction(withdrawalA);
-  // transactionBatch.executeTransaction(deposit_A);
-  // transactionBatch.executeTransaction(withdrawalB);
-  // transactionBatch.executeTransaction(deposit_B);
-  // transactionBatch.executeTransaction(withdrawalC);
-  // transactionBatch.executeTransaction(deposit_C);
-  // console.timeEnd("executeTransactionBatch");
+  transactionBatch.executeTransaction(withdrawalA);
+  transactionBatch.executeTransaction(deposit_A);
+  transactionBatch.executeTransaction(withdrawalB);
+  transactionBatch.executeTransaction(deposit_B);
+  transactionBatch.executeTransaction(withdrawalC);
+  transactionBatch.executeTransaction(deposit_C);
+  console.timeEnd("executeTransactionBatch");
 
   console.time("finalizeBatch");
   transactionBatch.finalizeBatch();

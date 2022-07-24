@@ -12,7 +12,4 @@ pub mod zzposeidon;
 
 pub mod test_utils;
 
-#[test]
-fn serde_test() {
-    test_utils::test_serde();
-}
+// #[test]

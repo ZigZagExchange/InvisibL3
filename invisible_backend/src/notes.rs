@@ -1,4 +1,5 @@
 use std::{
+    cell::Cell,
     collections::HashMap,
     fmt::{Debug, Formatter, Result},
     str::FromStr,
@@ -13,7 +14,7 @@ use crate::pedersen::{pedersen, pedersen_on_vec};
 use crate::users::biguint_to_32vec;
 
 pub struct Note {
-    pub index: u64,
+    pub index: Cell<Option<u64>>,
     pub public_key: BigUint, //address_pk
     pub token: u64,
     pub amount: u128,
@@ -23,7 +24,7 @@ pub struct Note {
 
 impl Note {
     pub fn new(
-        index: u64,
+        index: Option<u64>,
         public_key: BigUint, //address_pk
         token: u64,
         amount: u128,
@@ -32,7 +33,7 @@ impl Note {
         let note_hash = hash_note(amount, &blinding, token, &public_key);
 
         Note {
-            index,
+            index: Cell::new(index),
             public_key, //address_pk
             token,
             amount,
@@ -43,7 +44,7 @@ impl Note {
 
     pub fn clone(&self) -> Note {
         Note {
-            index: self.index,
+            index: self.index.clone(),
             public_key: self.public_key.clone(), //address_pk
             token: self.token,
             amount: self.amount,

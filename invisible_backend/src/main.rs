@@ -1,20 +1,29 @@
-use std::io::Read;
-use std::{collections::HashMap, ops::Mul, str::FromStr};
+// use std::io::Read;
+// use std::{collections::HashMap, ops::Mul, str::FromStr};
 
-use invisible_backend::notes::Note;
-use invisible_backend::pedersen::pedersen;
-use invisible_backend::starkware_crypto as starknet;
+use std::fmt::Debug;
+
+// use invisible_backend::notes::Note;
+// use invisible_backend::pedersen::pedersen;
+// use invisible_backend::starkware_crypto as starknet;
 use invisible_backend::test_utils::read_batch_json_inputs;
 use invisible_backend::transactions::transaction_batch::TransactionBatch;
 use invisible_backend::trees::Tree;
-use invisible_backend::users::biguint_to_32vec;
-use num_bigint::{BigUint, ToBigUint};
-use num_traits::FromPrimitive;
 
 pub fn main() {
     println!("\n\n");
 
-    let (init_leaves, swap1, swap2) = read_batch_json_inputs();
+    let (
+        init_leaves,
+        swap1,
+        swap2,
+        deposit1,
+        deposit2,
+        deposit3,
+        withdrawal1,
+        withdrawal2,
+        withdrawal3,
+    ) = read_batch_json_inputs();
 
     let batch_init_tree = Tree::new(init_leaves, 5);
 
@@ -22,42 +31,98 @@ pub fn main() {
 
     let start = std::time::Instant::now();
 
-    batch.execute_swap(swap1);
-    batch.execute_swap(swap2);
+    batch.execute_transaction(swap1);
 
+    batch.execute_transaction(swap2);
+    batch.execute_transaction(withdrawal1);
+    batch.execute_transaction(deposit1);
+    batch.execute_transaction(withdrawal2);
+    batch.execute_transaction(deposit2);
+    batch.execute_transaction(withdrawal3);
+    batch.execute_transaction(deposit3);
+
+    let mid = std::time::Instant::now();
+
+    batch.finalize_batch();
     let end = std::time::Instant::now();
-    let elapsed = end.duration_since(start);
-    println!("execute_swap took: {:?}", elapsed);
 
-    // verify_sig();
+    let elapsed1 = mid.duration_since(start);
+    let elapsed2 = end.duration_since(mid);
+
+    // println!("{:#?}", batch.preimage.keys().len());
+
+    println!("transaction batch execution took: {:?}", elapsed1);
+    println!("transaction batch finalization took: {:?}", elapsed2);
 
     println!("\n\n");
 }
 
-fn verify_sig() {
-    let sig = [
-        BigUint::from_str(
-            "200371425482467161309511306941739161877435606849165630059345742382388133479",
-        )
-        .unwrap(),
-        BigUint::from_str(
-            "2949088587850987568031785770717773369016080107487511179754559706270700024087",
-        )
-        .unwrap(),
-    ];
-
-    let msg_hash = BigUint::from_str("3333333333").unwrap();
-    let stark_key = BigUint::from_str(
-        "1914994814569112824410079350007058899395275284164752394101283237526758145619",
-    )
-    .unwrap();
-
-    let res = starknet::verify(
-        &biguint_to_32vec(&stark_key),
-        &biguint_to_32vec(&msg_hash),
-        &biguint_to_32vec(&sig[0]),
-        &biguint_to_32vec(&sig[1]),
-    );
-
-    println!("{}", res);
-}
+// [
+//   72874701165493522976028791489876126444494752994392523696346665258640297613n,
+//   924422594946152265239790386740152304150482591271935321074300667356352670518n,
+//   721024045022903477677575202486645017526547308122957759956303724593497365311n,
+//   3135717666055583664614751697857892030940062676607423556739456946696975699306n,
+//   0n,
+//   444978942778892876779949577761850181545500359516576294530786939993245224740n,
+//   3486353512209886840570941403744774252960746178647180316266142791715857152597n,
+//   1398638020702759924682686865742495827995923192819297847792526767499504716542n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   3488234274770303713514584781973839368876420468790955809688170056268500881148n,
+//   800379932295427331069660997393790134005628675941868543414323425843812082150n,
+//   663381683624269787460264867041972120145614480083754259755600755918241948466n,
+//   518383331002512754590300778099701235522637470653069498090964244752454904476n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   3488234274770303713514584781973839368876420468790955809688170056268500881148n,
+//   800379932295427331069660997393790134005628675941868543414323425843812082150n,
+//   663381683624269787460264867041972120145614480083754259755600755918241948466n,
+//   3404232003433961976130595074462988740678244485637404619621582411043483381009n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n
+// ]
+// Signatures verified
+// [
+//   72874701165493522976028791489876126444494752994392523696346665258640297613n,
+//   0,
+//   721024045022903477677575202486645017526547308122957759956303724593497365311n,
+//   1291549416849203376566953960540106720807549558087461530452173423894693008380n,
+//   0n,
+//   444978942778892876779949577761850181545500359516576294530786939993245224740n,
+//   3486353512209886840570941403744774252960746178647180316266142791715857152597n,
+//   1398638020702759924682686865742495827995923192819297847792526767499504716542n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   3488234274770303713514584781973839368876420468790955809688170056268500881148n,
+//   800379932295427331069660997393790134005628675941868543414323425843812082150n,
+//   663381683624269787460264867041972120145614480083754259755600755918241948466n,
+//   518383331002512754590300778099701235522637470653069498090964244752454904476n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   3488234274770303713514584781973839368876420468790955809688170056268500881148n,
+//   800379932295427331069660997393790134005628675941868543414323425843812082150n,
+//   663381683624269787460264867041972120145614480083754259755600755918241948466n,
+//   3404232003433961976130595074462988740678244485637404619621582411043483381009n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n,
+//   0n
+// ]

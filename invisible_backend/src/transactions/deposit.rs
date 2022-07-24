@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::str::FromStr;
 
@@ -12,6 +11,8 @@ use num_traits::FromPrimitive;
 
 //
 use crate::notes::Note;
+
+use super::swap::Transaction;
 //
 
 pub struct Deposit {
@@ -45,7 +46,7 @@ impl Deposit {
     }
 
     pub fn execute_deposit(
-        &mut self,
+        &self,
         batch_init_tree: &Tree,
         tree: &mut Tree,
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
@@ -62,7 +63,7 @@ impl Deposit {
             }
             amount_sum += self.notes[i].amount;
 
-            self.notes[i].index = zero_idxs[i];
+            self.notes[i].index.set(Some(zero_idxs[i]));
         }
 
         if amount_sum != self.deposit_amount {
@@ -73,13 +74,7 @@ impl Deposit {
         self.verify_deposit_signature();
 
         // ? Update the state
-        //     this.updateStateAfterDeposit(
-        //       batchInitTree,
-        //       tree,
-        //       preimage,
-        //       updatedNoteHashes
-        //     );
-        //   }
+        self.update_state_after_deposit(batch_init_tree, tree, preimage, updated_note_hashes);
     }
 
     // * UPDATE STATE * //
@@ -94,9 +89,10 @@ impl Deposit {
         self.get_init_state_preimage_proofs(batch_init_tree, preimage);
 
         for note in self.notes.iter() {
-            let (proof, proof_pos) = tree.get_proof(note.index);
-            tree.update_node(&note.hash, note.index, &proof);
-            updated_note_hashes.insert(note.index, (note.hash.clone(), proof, proof_pos));
+            let idx = note.index.get().unwrap_or(0);
+            let (proof, proof_pos) = tree.get_proof(idx);
+            tree.update_node(&note.hash, idx, &proof);
+            updated_note_hashes.insert(idx, (note.hash.clone(), proof, proof_pos));
         }
     }
 
@@ -106,14 +102,15 @@ impl Deposit {
         preimage: &mut HashMap<BigUint, [BigUint; 2]>,
     ) {
         for note in self.notes.iter() {
-            let (proof, proof_pos) = batch_init_tree.get_proof(note.index);
+            let idx = note.index.get().unwrap_or(0);
+            let (proof, proof_pos) = batch_init_tree.get_proof(idx);
             let mut multi_proof = batch_init_tree.get_multi_update_proof(
                 &BigUint::from_i8(0).unwrap(),
                 &proof,
                 &proof_pos,
             );
 
-            for (key, value) in multi_proof.drain().take(1) {
+            for (key, value) in multi_proof.drain() {
                 preimage.insert(key, value);
             }
         }
@@ -143,6 +140,25 @@ impl Deposit {
     }
 }
 
+// * Transaction Trait * //
+impl Transaction for Deposit {
+    fn transaction_type(&self) -> &str {
+        return self.transaction_type.as_str();
+    }
+
+    fn execute_transaction(
+        &self,
+        batch_init_tree: &Tree,
+        tree: &mut Tree,
+        partial_fill_tracker: &mut HashMap<u128, Note>,
+        preimage: &mut HashMap<BigUint, [BigUint; 2]>,
+        updated_note_hashes: &mut HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+    ) {
+        self.execute_deposit(batch_init_tree, tree, preimage, updated_note_hashes)
+    }
+}
+
+// * MAKE A DEPOSIT SIGNATURE BEFORE CREATING A DEPOSIT * //
 fn make_deposit_signature(
     deposit_id: u128,
     notes: Vec<Note>,

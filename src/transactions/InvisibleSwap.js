@@ -193,6 +193,9 @@ module.exports = class InvisibleSwap {
         newPartialRefundNoteA
       );
     } else {
+      console.log("swap note A: ", swapNoteA);
+      console.log("newPartialRefundNoteA: ", newPartialRefundNoteA);
+      console.log("partialFillRefundNote: ", this.orderA.partialFillRefundNote);
       this.updateStateAfterSwapLaterFills(
         batchInitTree,
         tree,

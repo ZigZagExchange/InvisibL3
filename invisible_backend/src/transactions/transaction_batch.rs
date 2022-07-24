@@ -11,6 +11,8 @@ use crate::users::biguint_to_32vec;
 //
 use crate::notes::Note;
 
+use super::deposit::Deposit;
+
 pub trait Transaction {
     fn transaction_type(&self) -> &str;
 
@@ -25,11 +27,11 @@ pub trait Transaction {
 }
 
 pub struct TransactionBatch {
-    batch_init_tree: Tree, // Should be immutable
-    current_state_tree: Tree,
-    partial_fill_tracker: HashMap<u128, Note>,
-    preimage: HashMap<BigUint, [BigUint; 2]>,
-    updated_note_hashes: HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
+    pub batch_init_tree: Tree, // Should be immutable
+    pub current_state_tree: Tree,
+    pub partial_fill_tracker: HashMap<u128, Note>,
+    pub preimage: HashMap<BigUint, [BigUint; 2]>,
+    pub updated_note_hashes: HashMap<u64, (BigUint, Vec<BigUint>, Vec<i8>)>,
 }
 
 impl TransactionBatch {
@@ -49,7 +51,7 @@ impl TransactionBatch {
         };
     }
 
-    pub fn execute_swap<T: Transaction>(&mut self, transaction: T) {
+    pub fn execute_transaction<T: Transaction>(&mut self, transaction: T) {
         //
 
         transaction.execute_transaction(
@@ -61,7 +63,15 @@ impl TransactionBatch {
         );
 
         match transaction.transaction_type() {
-            "swap" => {}
+            "swap" => {
+                println!("swap succesfull");
+            }
+            "deposit" => {
+                println!("deposit succesfull");
+            }
+            "withdrawal" => {
+                println!("withdrawal succesfull");
+            }
             _ => panic!("Invalid transaction type"),
         }
 
@@ -69,14 +79,12 @@ impl TransactionBatch {
     }
 
     pub fn finalize_batch(&mut self) {
-        //
-
-        for (index, (leaf_hash, proof, proof_pos)) in self.updated_note_hashes.drain().take(1) {
+        for (index, (leaf_hash, proof, proof_pos)) in self.updated_note_hashes.drain() {
             let mut multiproof = self
                 .current_state_tree
                 .get_multi_update_proof(&leaf_hash, &proof, &proof_pos);
 
-            for (key, value) in multiproof.drain().take(1) {
+            for (key, value) in multiproof.drain() {
                 self.preimage.insert(key, value);
             }
         }

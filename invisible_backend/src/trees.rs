@@ -11,7 +11,7 @@ use crate::pedersen::pedersen;
 pub mod tree_utils;
 
 pub struct Tree {
-    leaf_nodes: Vec<BigUint>,
+    pub leaf_nodes: Vec<BigUint>,
     inner_nodes: Vec<Vec<BigUint>>,
     pub depth: usize,
     pub root: BigUint,
