@@ -1,6 +1,6 @@
 # %builtins output pedersen range_check ecdsa
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin, BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.registers import get_fp_and_pc
@@ -27,6 +27,11 @@ from deposits_withdrawals.deposits.deposit_utils import (
     verify_deposit_notes,
 )
 from invisible_swaps.helpers.dict_updates import deposit_note_dict_updates
+from rollup.output_structs import (
+    NoteDiffOutput,
+    DepositTransactionOutput,
+    write_deposit_info_to_output,
+)
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
     ):
@@ -67,9 +72,12 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : 
 end
 
 func verify_deposit{
+    note_output_ptr : NoteDiffOutput*,
+    deposit_output_ptr : DepositTransactionOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
 }():
     alloc_locals
@@ -99,7 +107,11 @@ func verify_deposit{
     # & Also verify that the deposit was signed by the owner of the deposit address
     verify_deposit_notes(deposit_notes_len, deposit_notes, deposit)
 
+    # Update the note dict
     deposit_note_dict_updates(deposit_notes_len, deposit_notes)
+
+    # Write the deposit info to the output
+    write_deposit_info_to_output(deposit)
 
     return ()
 end

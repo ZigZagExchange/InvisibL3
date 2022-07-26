@@ -1,4 +1,4 @@
-from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin, BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.dict import dict_new, dict_write, dict_update, dict_squash, dict_read
@@ -6,6 +6,7 @@ from starkware.cairo.common.dict_access import DictAccess
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.math import unsigned_div_rem, assert_le
 from starkware.cairo.common.math_cmp import is_le
+from starkware.cairo.common.bitwise import bitwise_xor, bitwise_and
 from starkware.cairo.common.hash_state import (
     hash_init,
     hash_finalize,
@@ -30,12 +31,18 @@ from invisible_swaps.helpers.utils import (
     hash_note,
 )
 from unshielded_swaps.constants import ZERO_LEAF
+from rollup.output_structs import (
+    NoteDiffOutput,
+    write_new_note_to_output,
+    write_zero_note_to_output,
+)
 
 func execute_invisibl3_transaction{
-    output_ptr,
+    note_output_ptr : NoteDiffOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -78,9 +85,11 @@ end
 # ==================================================================================
 
 func first_fill{
+    note_output_ptr : NoteDiffOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -158,20 +167,27 @@ func first_fill{
     local new_fill_refund_note_idx : felt
     %{ ids.new_fill_refund_note_idx = int(order_indexes["partial_fill_idx"]) %}
 
+    # * Update the note dict with the new notes
     let note_dict_ptr = note_dict
+
     assert note_dict_ptr.key = new_fill_refund_note_idx
     assert note_dict_ptr.prev_value = ZERO_LEAF
     assert note_dict_ptr.new_value = new_fill_refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
 
+    # * Write the new note to the output
+    write_new_note_to_output(new_fill_refund_note)
+
     return ()
 end
 
 func later_fills{
+    note_output_ptr : NoteDiffOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
@@ -238,12 +254,16 @@ func later_fills{
         swap_note_idx,
     )
 
+    # * Update the note dict with the new notes
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = prev_fill_refund_note.index
     assert note_dict_ptr.prev_value = prev_fill_refund_note.hash
     assert note_dict_ptr.new_value = swap_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_new_note_to_output(swap_note)
 
     # ! if the order was filled partialy not completely ---------------------------
     let (condition : felt) = is_le(receive_amount, prev_fill_refund_note.amount - 1)
@@ -255,12 +275,16 @@ func later_fills{
         invisibl3_order, prev_fill_refund_note.amount, spend_amount, order_hash
     )
 
+    # * Update the note dict with the new notes
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = new_fill_refund_note.index
     assert note_dict_ptr.prev_value = ZERO_LEAF
     assert note_dict_ptr.new_value = new_fill_refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_new_note_to_output(new_fill_refund_note)
 
     return ()
 end

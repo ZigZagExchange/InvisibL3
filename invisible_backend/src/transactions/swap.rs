@@ -81,8 +81,6 @@ impl Swap {
         let is_first_fill_a = order_a.amount_filled.get() == 0;
         let is_first_fill_b = order_b.amount_filled.get() == 0;
 
-        println!("{:?}", is_first_fill_a);
-
         // ? Check the sum of notes in matches refund and output amounts
         if is_first_fill_a {
             // ? if this is the first fill
@@ -170,8 +168,6 @@ impl Swap {
         order_a
             .amount_filled
             .set(prev_amount_filled_a + self.spent_amount_b);
-
-        println!("{:?}", order_a.amount_filled.get());
 
         let prev_partial_fill_refund_note_a: Option<Note> =
             partial_fill_tracker.remove(&order_a.order_id);

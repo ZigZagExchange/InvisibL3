@@ -1,12 +1,12 @@
-from starkware.cairo.common.cairo_builtins import HashBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.registers import get_fp_and_pc
 from starkware.cairo.common.dict import dict_new, dict_write, dict_update, dict_squash, dict_read
 from starkware.cairo.common.dict_access import DictAccess
 from starkware.cairo.common.merkle_multi_update import merkle_multi_update
-from starkware.cairo.common.uint256 import Uint256
 from starkware.cairo.common.math import unsigned_div_rem, assert_le
+from starkware.cairo.common.bitwise import bitwise_xor, bitwise_and
 from starkware.cairo.common.math_cmp import is_le
 
 from invisible_swaps.helpers.range_checks import range_checks_
@@ -19,12 +19,19 @@ from invisible_swaps.helpers.utils import (
     hash_note,
 )
 from unshielded_swaps.constants import ZERO_LEAF
-
+from rollup.output_structs import (
+    NoteDiffOutput,
+    write_new_note_to_output,
+    write_zero_note_to_output,
+)
 # ! NOTE DICT UPDATES FOR SWAPS =====================================================
 
-func update_note_dict{note_dict : DictAccess*}(
-    notes_in_len : felt, notes_in : Note*, refund_note : Note, swap_note : Note
-):
+func update_note_dict{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(notes_in_len : felt, notes_in : Note*, refund_note : Note, swap_note : Note):
     if notes_in_len == 1:
         let note_in = notes_in[0]
         return update_one(note_in, refund_note, swap_note)
@@ -38,13 +45,24 @@ func update_note_dict{note_dict : DictAccess*}(
     return update_multi(notes_in_len, notes_in, refund_note, swap_note)
 end
 
-func update_one{note_dict : DictAccess*}(note_in : Note, refund_note : Note, swap_note : Note):
+func update_one{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(note_in : Note, refund_note : Note, swap_note : Note):
+    # * Update the note dict
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = refund_note.index
     assert note_dict_ptr.prev_value = note_in.hash
     assert note_dict_ptr.new_value = refund_note.hash
 
     let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_new_note_to_output(refund_note)
+
+    # * Write the note dict
 
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = swap_note.index
@@ -53,30 +71,50 @@ func update_one{note_dict : DictAccess*}(note_in : Note, refund_note : Note, swa
 
     let note_dict = note_dict + DictAccess.SIZE
 
+    # * Write the new note to the output
+    write_new_note_to_output(swap_note)
+
     return ()
 end
 
-func update_two{note_dict : DictAccess*}(
-    note_in1 : Note, note_in2 : Note, refund_note : Note, swap_note : Note
-):
+func update_two{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(note_in1 : Note, note_in2 : Note, refund_note : Note, swap_note : Note):
+    # * Update the note dict
+
     let note_dict_ptr = note_dict
     note_dict_ptr.key = refund_note.index
     note_dict_ptr.prev_value = note_in1.hash
     note_dict_ptr.new_value = refund_note.hash
 
-    let note_dict_ptr = note_dict + DictAccess.SIZE
+    let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_new_note_to_output(refund_note)
+
+    # * Update the note dict
+    let note_dict_ptr = note_dict
     note_dict_ptr.key = swap_note.index
     note_dict_ptr.prev_value = note_in2.hash
     note_dict_ptr.new_value = swap_note.hash
 
-    let note_dict = note_dict + 2 * DictAccess.SIZE
+    let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_new_note_to_output(swap_note)
 
     return ()
 end
 
-func update_multi{note_dict : DictAccess*}(
-    notes_in_len : felt, notes_in : Note*, refund_note : Note, swap_note : Note
-):
+func update_multi{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(notes_in_len : felt, notes_in : Note*, refund_note : Note, swap_note : Note):
     let note_in1 : Note = notes_in[0]
     let note_in2 : Note = notes_in[1]
 
@@ -85,11 +123,17 @@ func update_multi{note_dict : DictAccess*}(
     return _update_multi_inner(notes_in_len - 2, &notes_in[2])
 end
 
-func _update_multi_inner{note_dict : DictAccess*}(notes_in_len : felt, notes_in : Note*):
+func _update_multi_inner{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(notes_in_len : felt, notes_in : Note*):
     if notes_in_len == 0:
         return ()
     end
 
+    # * Update the note dict
     let note_in : Note = notes_in[0]
 
     let note_dict_ptr = note_dict
@@ -99,18 +143,25 @@ func _update_multi_inner{note_dict : DictAccess*}(notes_in_len : felt, notes_in 
 
     let note_dict = note_dict + DictAccess.SIZE
 
+    # * Write the zero note to the output
+    write_zero_note_to_output(note_in.index)
+
     return _update_multi_inner(notes_in_len - 1, &notes_in[1])
 end
 
 # ! NOTE DICT UPDATES FOR SWAPS =====================================================0
 
-func deposit_note_dict_updates{note_dict : DictAccess*}(
-    deposit_notes_len : felt, deposit_notes : Note*
-):
+func deposit_note_dict_updates{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(deposit_notes_len : felt, deposit_notes : Note*):
     if deposit_notes_len == 0:
         return ()
     end
 
+    # * Update the note dict
     let deposit_note : Note = deposit_notes[0]
 
     let note_dict_ptr = note_dict
@@ -120,12 +171,18 @@ func deposit_note_dict_updates{note_dict : DictAccess*}(
 
     let note_dict = note_dict + DictAccess.SIZE
 
+    # * Write the new note to the output
+    write_new_note_to_output(deposit_note)
+
     return deposit_note_dict_updates(deposit_notes_len - 1, &deposit_notes[1])
 end
 
-func withdraw_note_dict_updates{note_dict : DictAccess*}(
-    withdraw_notes_len : felt, withdraw_notes : Note*, refund_note : Note
-):
+func withdraw_note_dict_updates{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(withdraw_notes_len : felt, withdraw_notes : Note*, refund_note : Note):
     if withdraw_notes_len == 0:
         return ()
     end
@@ -134,7 +191,13 @@ func withdraw_note_dict_updates{note_dict : DictAccess*}(
     return _update_multi_inner_withdraw(withdraw_notes_len - 1, &withdraw_notes[1])
 end
 
-func _update_one_withdraw{note_dict : DictAccess*}(note_in : Note, refund_note : Note):
+func _update_one_withdraw{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(note_in : Note, refund_note : Note):
+    # * Update the note dict
     let note_dict_ptr = note_dict
     assert note_dict_ptr.key = note_in.index
     assert note_dict_ptr.prev_value = note_in.hash
@@ -142,14 +205,23 @@ func _update_one_withdraw{note_dict : DictAccess*}(note_in : Note, refund_note :
 
     let note_dict = note_dict + DictAccess.SIZE
 
+    # * Write the new note to the output
+    write_new_note_to_output(refund_note)
+
     return ()
 end
 
-func _update_multi_inner_withdraw{note_dict : DictAccess*}(notes_in_len : felt, notes_in : Note*):
+func _update_multi_inner_withdraw{
+    note_output_ptr : NoteDiffOutput*,
+    pedersen_ptr : HashBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
+    note_dict : DictAccess*,
+}(notes_in_len : felt, notes_in : Note*):
     if notes_in_len == 0:
         return ()
     end
 
+    # * Update the note dict
     let note_in : Note = notes_in[0]
 
     let note_dict_ptr = note_dict
@@ -158,6 +230,9 @@ func _update_multi_inner_withdraw{note_dict : DictAccess*}(notes_in_len : felt, 
     assert note_dict_ptr.new_value = 0
 
     let note_dict = note_dict + DictAccess.SIZE
+
+    # * Write the new note to the output
+    write_zero_note_to_output(note_in.index)
 
     return _update_multi_inner(notes_in_len - 1, &notes_in[1])
 end

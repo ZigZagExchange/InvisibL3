@@ -1,6 +1,6 @@
 # %builtins output pedersen range_check ecdsa
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin, BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.registers import get_fp_and_pc
@@ -23,6 +23,11 @@ from deposits_withdrawals.withdrawals.withdraw_utils import (
     verify_withdraw_notes,
 )
 from invisible_swaps.helpers.dict_updates import withdraw_note_dict_updates
+from rollup.output_structs import (
+    NoteDiffOutput,
+    WithdrawalTransactionOutput,
+    write_withdrawal_info_to_output,
+)
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
     ):
@@ -84,9 +89,12 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : 
 end
 
 func verify_withdrawal{
+    note_output_ptr : NoteDiffOutput*,
+    withdraw_output_ptr : WithdrawalTransactionOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
 }():
     alloc_locals
@@ -118,7 +126,11 @@ func verify_withdrawal{
     # & also verify all the notes were signed correctly
     verify_withdraw_notes(withdraw_notes_len, withdraw_notes, refund_note, withdrawal)
 
+    # Update the note dict
     withdraw_note_dict_updates(withdraw_notes_len, withdraw_notes, refund_note)
+
+    # write withdrawal info to the output
+    write_withdrawal_info_to_output(withdrawal)
 
     return ()
 end

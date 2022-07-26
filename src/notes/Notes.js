@@ -23,6 +23,10 @@ class Note {
   }
 
   hashNote() {
+    if (amount == 0n) {
+      return 0n;
+    }
+
     return BigInt(
       computeHashOnElements([this.address_pk(), this.token, this.commitment]),
       16

@@ -86,22 +86,26 @@ module.exports = class User {
 
     let refundNote;
     let refundAmount = sum - amount_spent;
-    if (refundAmount > 0n) {
-      // TODO: What to do if refund amount is zero???
-      let blinding = randomBigInt(250);
-      let ko = randomBigInt(250);
-      let addr = ec.g.mul(ko.toString(16));
-      refundNote = new Note(
-        addr,
-        token_spent,
-        refundAmount,
-        blinding,
-        notesIn[0].index
-      );
-
-      this.noteData[token_spent].push(refundNote);
-      this.address2ko[refundNote.address_pk()] = ko;
+    if (refundAmount < 0n) {
+      throw new Error("Not enough notes to make such a withdrawal");
     }
+    // if
+    // if (refundAmount > 0n) {
+    // // TODO: What to do if refund amount is zero???
+    let blinding = randomBigInt(250);
+    let ko = randomBigInt(250);
+    let addr = ec.g.mul(ko.toString(16));
+    refundNote = new Note(
+      addr,
+      token_spent,
+      refundAmount,
+      blinding,
+      notesIn[0].index
+    );
+
+    this.noteData[token_spent].push(refundNote);
+    this.address2ko[refundNote.address_pk()] = ko;
+    // }
 
     const order = new InvisibleOrder(
       nonce,
@@ -140,24 +144,27 @@ module.exports = class User {
 
     let refundNote;
     let refundAmount = sum - withdrawAmount;
-    if (refundAmount > 0n) {
-      // Todo || What to do if refund amount is zero???
-      // Todo || (return empty refund note => make notes with 0 amount hash to zero leaves)
-      // Todo this should again be calculated by some formula
-      let blinding = randomBigInt(250);
-      let ko = randomBigInt(250);
-      let addr = ec.g.mul(ko.toString(16));
-      refundNote = new Note(
-        addr,
-        withdrawToken,
-        refundAmount,
-        blinding,
-        notesIn[0].index
-      );
-
-      this.noteData[withdrawToken].push(refundNote);
-      this.address2ko[refundNote.address_pk()] = ko;
+    if (refundAmount < 0n) {
+      throw new Error("Not enough notes to make such a withdrawal");
     }
+    // if (refundAmount > 0n) {
+    //  // Todo || What to do if refund amount is zero???
+    //  // Todo || (return empty refund note => make notes with 0 amount hash to zero leaves)
+    //  // Todo this should again be calculated by some formula
+    let blinding = randomBigInt(250);
+    let ko = randomBigInt(250);
+    let addr = ec.g.mul(ko.toString(16));
+    refundNote = new Note(
+      addr,
+      withdrawToken,
+      refundAmount,
+      blinding,
+      notesIn[0].index
+    );
+
+    this.noteData[withdrawToken].push(refundNote);
+    this.address2ko[refundNote.address_pk()] = ko;
+    // }
 
     let withdrawId = notesIn.reduce((acc, note) => {
       return acc + note.amount / 10n;

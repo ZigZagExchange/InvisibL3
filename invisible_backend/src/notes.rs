@@ -18,7 +18,7 @@ pub struct Note {
     pub public_key: BigUint, //address_pk
     pub token: u64,
     pub amount: u128,
-    pub blinding: BigUint,
+    blinding: BigUint,
     pub hash: BigUint,
 }
 
@@ -55,6 +55,10 @@ impl Note {
 }
 
 fn hash_note(amount: u128, blinding: &BigUint, token: u64, public_key: &BigUint) -> BigUint {
+    if amount == 0 {
+        return BigUint::from_i8(0).unwrap();
+    }
+
     let commitment = pedersen(&BigUint::from_u128(amount).unwrap(), blinding);
 
     let token = BigUint::from_u64(token).unwrap();

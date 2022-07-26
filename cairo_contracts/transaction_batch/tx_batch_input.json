@@ -1,7 +1,14 @@
 {
-    "numSwaps": 2,
-    "numDeposits": 3,
-    "numWithdrawals": 3,
+    "global_dex_state": {
+        "global_config_code": "45637289837567483920",
+        "init_state_root": "92222062046288486116754955048530795303919606461160650019026416851797495717",
+        "final_state_root": "1093766681795034964601426348063403369053132649953111357806489029994478920452",
+        "tree_depth": 5,
+        "global_expiration_timestamp": 67273232389,
+        "n_swaps": 2,
+        "n_deposits": 3,
+        "n_withdrawals": 3
+    },
     "transactions": [
         {
             "transactionType": "swap",

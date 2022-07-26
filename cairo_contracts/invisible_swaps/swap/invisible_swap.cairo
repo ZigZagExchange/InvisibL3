@@ -1,6 +1,6 @@
 # %builtins output pedersen range_check
 
-from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin
+from starkware.cairo.common.cairo_builtins import HashBuiltin, SignatureBuiltin, BitwiseBuiltin
 from starkware.cairo.common.alloc import alloc
 from starkware.cairo.common.hash import hash2
 from starkware.cairo.common.registers import get_fp_and_pc
@@ -23,6 +23,8 @@ from starkware.cairo.common.hash_state import (
 from invisible_swaps.swap.tx_hash.tx_hash import hash_transaction
 from invisible_swaps.swap.transaction.invisibl3_tx import execute_invisibl3_transaction
 from invisible_swaps.helpers.utils import Invisibl3Order, Note
+
+from rollup.output_structs import NoteDiffOutput
 
 func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : SignatureBuiltin*}(
     ):
@@ -109,10 +111,11 @@ func main{output_ptr, pedersen_ptr : HashBuiltin*, range_check_ptr, ecdsa_ptr : 
 end
 
 func verify_swap{
-    output_ptr,
+    note_output_ptr : NoteDiffOutput*,
     pedersen_ptr : HashBuiltin*,
     range_check_ptr,
     ecdsa_ptr : SignatureBuiltin*,
+    bitwise_ptr : BitwiseBuiltin*,
     note_dict : DictAccess*,
     partial_fill_dict : DictAccess*,
     fee_tracker_dict : DictAccess*,
